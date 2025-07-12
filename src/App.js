@@ -7,7 +7,7 @@ import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Thumb
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
@@ -283,7 +283,14 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                     )}
                 </div>
                 <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-white">Feedback & Revisions</h4>{user.role === 'designer' && post.status === 'Revisions Requested' && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div>
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-bold text-lg text-white">Feedback & Revisions</h4>
+                        {user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (
+                            <button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg transition-colors">
+                                <Edit size={16} className="mr-2" /> Edit Post
+                            </button>
+                        )}
+                    </div>
                     <div ref={feedbackContainerRef} className="flex-grow bg-slate-900/50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-sky-800' : 'bg-slate-700'}`}><p className="text-white text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-slate-400 mt-1">{fb.authorName}</span></div>))) : (<div className="text-center text-slate-400 pt-8">No feedback yet.</div>)}</div>
                     {post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition text-white" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}
                 </div>
