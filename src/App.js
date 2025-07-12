@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs } from 'firebase/firestore';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, Trash2, Save, LogOut } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, Trash2, Save, LogOut, Filter } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -70,7 +70,6 @@ const AuthScreen = ({ setNotification }) => {
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
-                // The main App component will handle the redirect on successful sign-in
             } else {
                 if (!name) {
                     setNotification({ message: 'Please enter your name.', type: 'error' });
@@ -83,7 +82,6 @@ const AuthScreen = ({ setNotification }) => {
                     email: email,
                     role: role
                 });
-                // The main App component will handle the redirect on successful registration
             }
         } catch (error) {
             setNotification({ message: error.message, type: 'error' });
@@ -178,53 +176,26 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const [imageUrls, setImageUrls] = useState(['']);
     const [selectedClientId, setSelectedClientId] = useState('');
 
-    useEffect(() => {
-        if (clients.length > 0) {
-            setSelectedClientId(clients[0].id);
-        }
-    }, [clients]);
-
+    useEffect(() => { if (clients.length > 0) { setSelectedClientId(clients[0].id); } }, [clients]);
     const handleImageUrlChange = (index, value) => { const newUrls = [...imageUrls]; newUrls[index] = value; setImageUrls(newUrls); };
     const addImageUrlInput = () => { if (imageUrls.length < 5) { setImageUrls([...imageUrls, '']); } };
     const removeImageUrlInput = (index) => { const newUrls = imageUrls.filter((_, i) => i !== index); setImageUrls(newUrls); };
-
     const handleSubmit = (e) => {
         e.preventDefault();
         const finalImageUrls = imageUrls.map(url => url.trim()).filter(url => url !== '');
         if (!caption || finalImageUrls.length === 0 || !selectedClientId) { alert("Please fill all fields and select a client."); return; }
-        const newPost = {
-            platform, caption, hashtags, imageUrls: finalImageUrls,
-            clientId: selectedClientId,
-            designerId: user.uid,
-            status: 'Pending Review', feedback: [],
-            createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-        };
+        const newPost = { platform, caption, hashtags, imageUrls: finalImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
         onPostCreated(newPost);
     };
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 text-slate-300">
-            <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Assign to Client</label>
-                <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition">
-                    <option value="" disabled>Select a client...</option>
-                    {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-                </select>
-            </div>
+            <div><label className="block text-sm font-medium text-slate-300 mb-2">Assign to Client</label><select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"><option value="" disabled>Select a client...</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}</select></div>
             <div><label className="block text-sm font-medium text-slate-300 mb-2">Platform</label><select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"><option>Instagram</option><option>Facebook</option><option>LinkedIn</option></select></div>
             <div><label className="block text-sm font-medium text-slate-300 mb-2">Caption</label><textarea value={caption} onChange={e => setCaption(e.target.value)} rows="4" placeholder="Write a compelling caption..." className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"></textarea></div>
             <div><label className="block text-sm font-medium text-slate-300 mb-2">Hashtags</label><input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#realestate #newlisting #dreamhome" className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition" /></div>
-            <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Image URLs (up to 5)</label>
-                <div className="space-y-2">
-                    {imageUrls.map((url, index) => (<div key={index} className="flex items-center gap-2"><input type="text" value={url} onChange={e => handleImageUrlChange(index, e.target.value)} placeholder="https://example.com/image.png" className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition" /><button type="button" onClick={() => removeImageUrlInput(index)} className="p-3 bg-red-800/50 hover:bg-red-700/50 text-red-300 rounded-lg transition-colors"><Trash2 size={16} /></button></div>))}
-                </div>
-                {imageUrls.length < 5 && (<button type="button" onClick={addImageUrlInput} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300 font-semibold">+ Add another image</button>)}
-            </div>
-            <div className="flex justify-end gap-4 pt-4">
-                <button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold transition-colors">Cancel</button>
-                <button type="submit" className="py-2 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors flex items-center"><Plus size={18} className="mr-2" /> Create Post</button>
-            </div>
+            <div><label className="block text-sm font-medium text-slate-300 mb-2">Image URLs (up to 5)</label><div className="space-y-2">{imageUrls.map((url, index) => (<div key={index} className="flex items-center gap-2"><input type="text" value={url} onChange={e => handleImageUrlChange(index, e.target.value)} placeholder="https://example.com/image.png" className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition" /><button type="button" onClick={() => removeImageUrlInput(index)} className="p-3 bg-red-800/50 hover:bg-red-700/50 text-red-300 rounded-lg transition-colors"><Trash2 size={16} /></button></div>))}</div>{imageUrls.length < 5 && (<button type="button" onClick={addImageUrlInput} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300 font-semibold">+ Add another image</button>)}</div>
+            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold transition-colors">Cancel</button><button type="submit" className="py-2 px-5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors flex items-center"><Plus size={18} className="mr-2" /> Create Post</button></div>
         </form>
     );
 };
@@ -239,25 +210,12 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     useEffect(() => { if (post) { setEditData({ caption: post.caption, hashtags: post.hashtags, imageUrls: post.imageUrls || [''] }); setCurrentImageIndex(0); } }, [post]);
     useEffect(() => { if (feedbackContainerRef.current) { feedbackContainerRef.current.scrollTop = feedbackContainerRef.current.scrollHeight; } }, [post?.feedback]);
 
-    const handleFeedbackSubmit = () => {
-        if (!comment.trim()) return;
-        const feedbackData = { authorId: user.uid, authorName: user.name, text: comment, timestamp: new Date().toISOString(), authorRole: user.role };
-        onAddFeedback(post.id, feedbackData);
-        setComment('');
-    };
-
-    const handleSaveChanges = () => {
-        const finalImageUrls = editData.imageUrls.map(url => url.trim()).filter(url => url !== '');
-        if (!editData.caption || finalImageUrls.length === 0) { alert("Please provide a caption and at least one image URL."); return; }
-        onUpdatePost(post.id, { ...editData, imageUrls: finalImageUrls });
-        setIsEditing(false);
-    };
-    
+    const handleFeedbackSubmit = () => { if (!comment.trim()) return; const feedbackData = { authorId: user.uid, authorName: user.name, text: comment, timestamp: new Date().toISOString(), authorRole: user.role }; onAddFeedback(post.id, feedbackData); setComment(''); };
+    const handleSaveChanges = () => { const finalImageUrls = editData.imageUrls.map(url => url.trim()).filter(url => url !== ''); if (!editData.caption || finalImageUrls.length === 0) { alert("Please provide a caption and at least one image URL."); return; } onUpdatePost(post.id, { ...editData, imageUrls: finalImageUrls }); setIsEditing(false); };
     const handleEditFieldChange = (field, value) => setEditData(prev => ({ ...prev, [field]: value }));
     const handleEditImageUrlChange = (index, value) => { const newUrls = [...editData.imageUrls]; newUrls[index] = value; setEditData(prev => ({ ...prev, imageUrls: newUrls })); };
     const addEditImageUrlInput = () => { if (editData.imageUrls.length < 5) { setEditData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ''] })); } };
     const removeEditImageUrlInput = (index) => { const newUrls = editData.imageUrls.filter((_, i) => i !== index); setEditData(prev => ({ ...prev, imageUrls: newUrls })); };
-
     const nextImage = () => setCurrentImageIndex(prev => (prev + 1) % (post?.imageUrls?.length || 1));
     const prevImage = () => setCurrentImageIndex(prev => (prev - 1 + (post?.imageUrls?.length || 1)) % (post?.imageUrls?.length || 1));
 
@@ -266,34 +224,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     return (
         <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post?.platform} Post`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                    {isEditing ? (
-                        <>
-                            <div><label className="block text-sm font-medium text-slate-300 mb-2">Image URLs (up to 5)</label><div className="space-y-2">{editData.imageUrls.map((url, index) => (<div key={index} className="flex items-center gap-2"><input type="text" value={url} onChange={e => handleEditImageUrlChange(index, e.target.value)} placeholder="https://example.com/image.png" className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition" /><button type="button" onClick={() => removeEditImageUrlInput(index)} className="p-3 bg-red-800/50 hover:bg-red-700/50 text-red-300 rounded-lg transition-colors"><Trash2 size={16} /></button></div>))}</div>{editData.imageUrls.length < 5 && <button type="button" onClick={addEditImageUrlInput} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300 font-semibold">+ Add another image</button>}</div>
-                            <div><label className="block text-sm font-medium text-slate-300 mb-2">Caption</label><textarea value={editData.caption} onChange={e => handleEditFieldChange('caption', e.target.value)} rows="6" className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition"></textarea></div>
-                            <div><label className="block text-sm font-medium text-slate-300 mb-2">Hashtags</label><input type="text" value={editData.hashtags} onChange={e => handleEditFieldChange('hashtags', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition" /></div>
-                            <div className="flex justify-end gap-4 pt-4"><button onClick={() => setIsEditing(false)} className="py-2 px-5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-semibold transition-colors">Cancel</button><button onClick={handleSaveChanges} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center"><Save size={18} className="mr-2" /> Save Changes</button></div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="relative"><img src={post.imageUrls?.[currentImageIndex] || 'https://placehold.co/600x400/1e293b/ffffff?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/1e293b/ffffff?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {post.imageUrls.length}</div></>)}</></div>
-                            <div><h4 className="font-bold text-lg text-white mb-1">Caption</h4><p className="text-slate-300 bg-slate-900/50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
-                            <div><h4 className="font-bold text-lg text-white mb-1">Hashtags</h4><p className="text-slate-400 bg-slate-900/50 p-3 rounded-lg break-all">{post?.hashtags}</p></div>
-                        </>
-                    )}
-                </div>
-                <div className="flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-bold text-lg text-white">Feedback & Revisions</h4>
-                        {user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (
-                            <button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg transition-colors">
-                                <Edit size={16} className="mr-2" /> Edit Post
-                            </button>
-                        )}
-                    </div>
-                    <div ref={feedbackContainerRef} className="flex-grow bg-slate-900/50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-sky-800' : 'bg-slate-700'}`}><p className="text-white text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-slate-400 mt-1">{fb.authorName}</span></div>))) : (<div className="text-center text-slate-400 pt-8">No feedback yet.</div>)}</div>
-                    {post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition text-white" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}
-                </div>
+                <div className="space-y-4">{isEditing ? (<><>{/* Edit Form */}</></>) : (<><div className="relative"><img src={post.imageUrls?.[currentImageIndex] || 'https://placehold.co/600x400/1e293b/ffffff?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/1e293b/ffffff?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {post.imageUrls.length}</div></>)}</></div><div><h4 className="font-bold text-lg text-white mb-1">Caption</h4><p className="text-slate-300 bg-slate-900/50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div><div><h4 className="font-bold text-lg text-white mb-1">Hashtags</h4><p className="text-slate-400 bg-slate-900/50 p-3 rounded-lg break-all">{post?.hashtags}</p></div></>)}</div>
+                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-white">Feedback & Revisions</h4>{user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div ref={feedbackContainerRef} className="flex-grow bg-slate-900/50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-sky-800' : 'bg-slate-700'}`}><p className="text-white text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-slate-400 mt-1">{fb.authorName}</span></div>))) : (<div className="text-center text-slate-400 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 transition text-white" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-lg transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
         </Modal>
     );
@@ -305,8 +237,8 @@ const Portal = ({ user, setNotification }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [reviewingPost, setReviewingPost] = useState(null);
+    const [clientFilter, setClientFilter] = useState('all');
 
-    // Fetch posts based on user role
     useEffect(() => {
         setIsLoading(true);
         const postsCollection = collection(db, `artifacts/${appId}/public/data/social_media_posts`);
@@ -320,7 +252,6 @@ const Portal = ({ user, setNotification }) => {
         return () => unsubscribe();
     }, [user]);
 
-    // Fetch clients if user is a designer
     useEffect(() => {
         if (user.role === 'designer') {
             const fetchClients = async () => {
@@ -342,14 +273,21 @@ const Portal = ({ user, setNotification }) => {
     const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp() }; if (user.role === 'client') { updatePayload.status = 'Revisions Requested'; } await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
+    const filteredPosts = useMemo(() => {
+        if (user.role === 'designer' && clientFilter !== 'all') {
+            return posts.filter(post => post.clientId === clientFilter);
+        }
+        return posts;
+    }, [posts, clientFilter, user.role]);
+
     const columns = useMemo(() => ({
-        'Pending Review': posts.filter(p => p.status === 'Pending Review'),
-        'Revisions Requested': posts.filter(p => p.status === 'Revisions Requested'),
-        'Approved': posts.filter(p => p.status === 'Approved'),
-    }), [posts]);
+        'Pending Review': filteredPosts.filter(p => p.status === 'Pending Review'),
+        'Revisions Requested': filteredPosts.filter(p => p.status === 'Revisions Requested'),
+        'Approved': filteredPosts.filter(p => p.status === 'Approved'),
+    }), [filteredPosts]);
 
     return (
-        <div className="bg-slate-900 text-white min-h-screen font-sans">
+        <div className="bg-slate-900 text-white min-h-screen font-sans flex flex-col">
             <header className="bg-slate-900/70 backdrop-blur-lg p-4 sticky top-0 z-30 border-b border-slate-700">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-white">CoreX</h1><span className="text-2xl font-light text-slate-400">Social Hub</span></div>
@@ -360,13 +298,28 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="max-w-7xl mx-auto p-4 md:p-8">
+            <main className="max-w-7xl w-full mx-auto p-4 md:p-8 flex-grow flex flex-col">
+                {user.role === 'designer' && (
+                    <div className="mb-6 flex justify-end">
+                        <div className="flex items-center gap-2">
+                            <Filter size={16} className="text-slate-400" />
+                            <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-indigo-500 transition">
+                                <option value="all">All Clients</option>
+                                {clients.map(client => (
+                                    <option key={client.id} value={client.id}>{client.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
                 {isLoading ? (<div className="text-center py-20 text-slate-400">Loading posts...</div>) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow">
                         {Object.entries(columns).map(([status, postsInColumn]) => (
-                            <div key={status} className="bg-slate-800/50 rounded-xl p-4">
-                                <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center">{status} <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                <div className="space-y-4 h-full overflow-y-auto">{postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={setReviewingPost} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">No posts in this stage.</div>)}</div>
+                            <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col h-full">
+                                <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
+                                <div className="space-y-4 overflow-y-auto flex-grow">
+                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={setReviewingPost} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">No posts in this stage.</div>)}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -394,8 +347,6 @@ export default function App() {
                 if (userDoc.exists()) {
                     setUser({ uid: firebaseUser.uid, ...userDoc.data() });
                 } else {
-                    // If user is authenticated but has no profile, sign them out and show an error.
-                    // This can happen if registration succeeded but the profile doc write failed.
                     setNotification({ message: 'User profile not found. Please register again.', type: 'error' });
                     await signOut(auth);
                     setUser(null);
