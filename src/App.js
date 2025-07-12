@@ -328,7 +328,7 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 )}
                 {isLoading ? (<div className="text-center py-20 text-slate-400">Loading posts...</div>) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow min-h-0">
                         {Object.entries(columns).map(([status, postsInColumn]) => (
                             <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col h-full">
                                 <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
