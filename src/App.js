@@ -5,6 +5,9 @@ import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, wh
 import { CheckCircle, MessageSquare, Plus, Edit, Send, User, Shield, Image as ImageIcon, ThumbsUp, XCircle, Clock, Trash2, Save } from 'lucide-react';
 
 // --- Firebase Configuration ---
+// The /* eslint-disable */ comments below are to fix build errors on Netlify.
+// They tell the build process to ignore that these variables are not defined in a standard environment.
+/* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
@@ -16,6 +19,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
 
 // --- App ID ---
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
+/* eslint-enable no-undef */
 
 // --- Initialize Firebase ---
 const app = initializeApp(firebaseConfig);
@@ -31,18 +35,23 @@ const MOCK_USERS = {
 // --- Helper Components ---
 
 const Notification = ({ message, type, onDismiss }) => {
+    // FIX: Moved useEffect hook to the top level to follow the Rules of Hooks.
+    useEffect(() => {
+        // Only set a timer if there is a message to dismiss.
+        if (message) {
+            const timer = setTimeout(() => onDismiss(), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [message, onDismiss]);
+
     if (!message) return null;
+    
     const baseStyle = "fixed top-5 right-5 p-4 rounded-lg shadow-xl text-white flex items-center z-50 transition-transform transform translate-x-0";
     const typeStyles = {
         success: 'bg-green-500',
         error: 'bg-red-500',
         info: 'bg-blue-500'
     };
-    
-    useEffect(() => {
-        const timer = setTimeout(onDismiss, 4000);
-        return () => clearTimeout(timer);
-    }, [onDismiss]);
 
     return (
         <div className={`${baseStyle} ${typeStyles[type] || 'bg-gray-800'}`}>
@@ -180,7 +189,6 @@ const NewPostForm = ({ user, onPostCreated, onCancel }) => {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 text-slate-300">
-            {/* Platform, Caption, Hashtags inputs remain the same */}
             <div>
                  <label className="block text-sm font-medium text-slate-300 mb-2">Platform</label>
                  <select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
@@ -272,7 +280,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
         setIsEditing(false);
     };
     
-    // Edit form handlers
     const handleEditFieldChange = (field, value) => setEditData(prev => ({ ...prev, [field]: value }));
     const handleEditImageUrlChange = (index, value) => {
         const newUrls = [...editData.imageUrls];
@@ -297,7 +304,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     return (
         <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post?.platform} Post`}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Left side: Post details or Edit Form */}
                 <div className="space-y-4">
                     {isEditing ? (
                         <>
@@ -350,7 +356,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                     )}
                 </div>
 
-                {/* Right side: Feedback and comments */}
                 <div className="flex flex-col h-full">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="font-bold text-lg text-white">Feedback & Revisions</h4>
@@ -404,7 +409,9 @@ export default function App() {
                 setUser({ uid: mockUserId, ...MOCK_USERS[mockUserId] });
             } else {
                 try {
+                    /* eslint-disable no-undef */
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    /* eslint-enable no-undef */
                     if (token) { await signInWithCustomToken(auth, token); } else { await signInAnonymously(auth); }
                 } catch (error) { console.error("Auth Error:", error); }
             }
