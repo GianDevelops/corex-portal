@@ -7,7 +7,7 @@ import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Thumb
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
@@ -70,7 +70,7 @@ const AuthScreen = ({ setNotification }) => {
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
-                setNotification({ message: 'Signed in successfully!', type: 'success' });
+                // The main App component will handle the redirect on successful sign-in
             } else {
                 if (!name) {
                     setNotification({ message: 'Please enter your name.', type: 'error' });
@@ -83,7 +83,7 @@ const AuthScreen = ({ setNotification }) => {
                     email: email,
                     role: role
                 });
-                setNotification({ message: 'Account created successfully!', type: 'success' });
+                // The main App component will handle the redirect on successful registration
             }
         } catch (error) {
             setNotification({ message: error.message, type: 'error' });
@@ -387,8 +387,11 @@ export default function App() {
                 if (userDoc.exists()) {
                     setUser({ uid: firebaseUser.uid, ...userDoc.data() });
                 } else {
-                    // This case might happen if user doc creation failed
-                    setUser(null); 
+                    // If user is authenticated but has no profile, sign them out and show an error.
+                    // This can happen if registration succeeded but the profile doc write failed.
+                    setNotification({ message: 'User profile not found. Please register again.', type: 'error' });
+                    await signOut(auth);
+                    setUser(null);
                 }
             } else {
                 setUser(null);
