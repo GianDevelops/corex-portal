@@ -302,8 +302,8 @@ const Portal = ({ user, setNotification }) => {
     }), [filteredPosts]);
 
     return (
-        <div className="bg-slate-900 text-white min-h-screen font-sans flex flex-col">
-            <header className="bg-slate-900/70 backdrop-blur-lg p-4 sticky top-0 z-30 border-b border-slate-700">
+        <div className="bg-slate-900 text-white h-screen font-sans flex flex-col">
+            <header className="bg-slate-900/70 backdrop-blur-lg p-4 sticky top-0 z-30 border-b border-slate-700 flex-shrink-0">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-white">CoreX</h1><span className="text-2xl font-light text-slate-400">Social Hub</span></div>
                     <div className="flex items-center gap-6">
@@ -313,9 +313,9 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="max-w-7xl w-full mx-auto p-4 md:p-8 flex-grow flex flex-col">
+            <main className="max-w-7xl w-full mx-auto p-4 md:p-8 flex-1 flex flex-col min-h-0">
                 {user.role === 'designer' && (
-                    <div className="mb-6 flex justify-end">
+                    <div className="mb-6 flex justify-end flex-shrink-0">
                         <div className="flex items-center gap-2">
                             <Filter size={16} className="text-slate-400" />
                             <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-indigo-500 transition">
@@ -328,11 +328,11 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 )}
                 {isLoading ? (<div className="text-center py-20 text-slate-400">Loading posts...</div>) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                         {Object.entries(columns).map(([status, postsInColumn]) => (
-                            <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col h-full">
+                            <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col">
                                 <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                <div className="space-y-4 overflow-y-auto flex-grow">
+                                <div className="space-y-4 overflow-y-auto">
                                     {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={setReviewingPost} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">No posts in this stage.</div>)}
                                 </div>
                             </div>
