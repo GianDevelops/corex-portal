@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs } from 'firebase/firestore';
@@ -7,7 +7,7 @@ import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Thumb
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
