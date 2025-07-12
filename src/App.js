@@ -330,9 +330,9 @@ const Portal = ({ user, setNotification }) => {
                 {isLoading ? (<div className="text-center py-20 text-slate-400">Loading posts...</div>) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                         {Object.entries(columns).map(([status, postsInColumn]) => (
-                            <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col">
+                            <div key={status} className="bg-slate-800/50 rounded-xl p-4 flex flex-col min-h-0">
                                 <h2 className="text-lg font-bold text-white mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-slate-700 text-slate-300 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                <div className="space-y-4 overflow-y-auto flex-1">
+                                <div className="space-y-4 overflow-y-auto flex-1 p-1">
                                     {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={setReviewingPost} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-slate-500 text-sm border-2 border-dashed border-slate-700 rounded-lg">No posts in this stage.</div>)}
                                 </div>
                             </div>
