@@ -105,6 +105,13 @@ const AuthScreen = ({ setNotification }) => {
 // --- Portal Components ---
 const PostCard = ({ post, user, onReview, onApprove }) => {
     const canTakeAction = user.role === 'client' && (post.status === 'Pending Review' || post.status === 'Revisions Requested');
+    const hasUnreadComments = useMemo(() => {
+        if (!post.feedback || post.feedback.length === 0) return false;
+        const lastCommenterId = post.feedback[post.feedback.length - 1].authorId;
+        const seenBy = post.seenBy || [];
+        return lastCommenterId !== user.uid && !seenBy.includes(user.uid);
+    }, [post.feedback, post.seenBy, user.uid]);
+
     const getStatusChip = (status) => {
         switch (status) {
             case 'Pending Review': return <div className="flex items-center text-sm font-medium text-yellow-800 bg-yellow-100 px-3 py-1 rounded-full"><Clock size={14} className="mr-1.5" />{status}</div>;
@@ -114,9 +121,9 @@ const PostCard = ({ post, user, onReview, onApprove }) => {
         }
     };
     return (
-        <div className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col">
+        <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
             <div className="relative"><img src={post.imageUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post graphic" className="w-full h-48 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm"><ImageIcon size={12} className="mr-1.5" /> {post.imageUrls.length}</div>)}</></div>
-            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><span className="text-xs font-semibold text-green-600 uppercase tracking-wider">{post.platform}</span>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-3">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-2">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><button onClick={() => onReview(post)} className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span></button>{canTakeAction && (<button onClick={() => onApprove(post.id)} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}</div></div></div>
+            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><span className="text-xs font-semibold text-green-600 uppercase tracking-wider">{post.platform}</span>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-3">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-2">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div>{canTakeAction && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}</div></div></div>
         </div>
     );
 };
@@ -164,7 +171,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
         setIsUploading(true);
         try {
             const uploadedImageUrls = await uploadImages(imageFiles);
-            const newPost = { platform, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            const newPost = { platform, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid] };
             onPostCreated(newPost);
         } catch (error) {
             console.error("Image upload failed:", error);
@@ -211,6 +218,23 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     );
 };
 
+const formatTimestamp = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffSeconds = Math.round((now - date) / 1000);
+    const diffMinutes = Math.round(diffSeconds / 60);
+    const diffHours = Math.round(diffMinutes / 60);
+    const diffDays = Math.round(diffHours / 24);
+
+    if (diffSeconds < 60) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -244,11 +268,15 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const removeImage = (index, isExisting) => {
         if (isExisting) {
             setEditData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== index) }));
-            setImagePreviews(prev => prev.filter((_, i) => i !== index));
+            const newImagePreviews = [...imagePreviews];
+            newImagePreviews.splice(index, 1);
+            setImagePreviews(newImagePreviews);
         } else {
             const newFileIndex = index - editData.imageUrls.length;
             setNewImageFiles(prev => prev.filter((_, i) => i !== newFileIndex));
-            setImagePreviews(prev => prev.filter((_, i) => i !== index));
+            const newImagePreviews = [...imagePreviews];
+            newImagePreviews.splice(index, 1);
+            setImagePreviews(newImagePreviews);
         }
     };
 
@@ -268,7 +296,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
         try {
             const newUploadedUrls = await uploadImages(newImageFiles);
             const finalImageUrls = [...editData.imageUrls, ...newUploadedUrls];
-            const finalPostData = { caption: editData.caption, hashtags: editData.hashtags, imageUrls: finalImageUrls };
+            const finalPostData = { caption: editData.caption, hashtags: editData.hashtags, imageUrls: finalImageUrls, seenBy: [user.uid] };
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
         } catch (error) {
@@ -290,7 +318,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                 <div className="space-y-4">
                     {isEditing ? (
                         <>
-                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Images ({editData.imageUrls.length + newImageFiles.length} / 5)</label>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Images ({imagePreviews.length} / 5)</label>
                                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF up to 10MB</p></div></div>
                                 {imagePreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{imagePreviews.map((preview, index) => (<div key={preview} className="relative group"><img src={preview} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" /><button type="button" onClick={() => removeImage(index, index < editData.imageUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                             </div>
@@ -300,13 +328,13 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                         </>
                     ) : (
                         <>
-                            <div className="relative"><img src={post.imageUrls?.[currentImageIndex] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {post.imageUrls.length}</div></>)}</></div>
+                            <div className="relative"><img src={imagePreviews?.[currentImageIndex] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {imagePreviews?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {imagePreviews.length}</div></>)}</></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Caption</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Hashtags</h4><p className="text-gray-500 bg-gray-50 p-3 rounded-lg break-all">{post?.hashtags}</p></div>
                         </>
                     )}
                 </div>
-                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
+                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
         </Modal>
     );
@@ -319,6 +347,16 @@ const Portal = ({ user, setNotification }) => {
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
+
+    const markAsSeen = async (postId) => {
+        const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
+        await updateDoc(postRef, { seenBy: arrayUnion(user.uid) });
+    };
+
+    const handleOpenReview = (post) => {
+        setReviewingPost(post);
+        markAsSeen(post.id);
+    };
 
     useEffect(() => {
         setIsLoading(true);
@@ -351,7 +389,7 @@ const Portal = ({ user, setNotification }) => {
     const handleCreatePost = async (newPostData) => { try { await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); setIsNewPostModalOpen(false); setNotification({ message: 'Post created!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to create post.', type: 'error' }); } };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, status: 'Pending Review', updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
     const handleApprovePost = async (postId) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); setNotification({ message: 'Post approved!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to approve post.', type: 'error' }); } };
-    const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp() }; if (user.role === 'client') { updatePayload.status = 'Revisions Requested'; } await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
+    const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; if (user.role === 'client') { updatePayload.status = 'Revisions Requested'; } await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const filteredPosts = useMemo(() => {
@@ -399,7 +437,7 @@ const Portal = ({ user, setNotification }) => {
                             <div key={status} className="bg-gray-100 rounded-xl p-4 flex flex-col min-h-0">
                                 <h2 className="text-lg font-bold text-gray-800 mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
                                 <div className="space-y-4 overflow-y-auto flex-1 p-1">
-                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={setReviewingPost} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                 </div>
                             </div>
                         ))}
