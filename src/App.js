@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save } from 'lucide-react';
 
@@ -120,16 +120,24 @@ const PostCard = ({ post, user, onReview, onApprove }) => {
             default: return <div className="text-sm font-medium text-gray-700 bg-gray-200 px-3 py-1 rounded-full">{status}</div>;
         }
     };
+
+    const revisionCountText = (count) => {
+        if (!count || count === 0) return null;
+        const suffix = count === 1 ? 'st' : count === 2 ? 'nd' : 'rd';
+        return `${count}${suffix} Revision`;
+    };
+
     return (
         <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
             <div className="relative"><img src={post.imageUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post graphic" className="w-full h-48 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm"><ImageIcon size={12} className="mr-1.5" /> {post.imageUrls.length}</div>)}</></div>
-            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><span className="text-xs font-semibold text-green-600 uppercase tracking-wider">{post.platform}</span>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-3">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-2">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div>{canTakeAction && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}</div></div></div>
+            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-3">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-2">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div>{canTakeAction && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}</div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
         </div>
     );
 };
 
+const platformOptions = ['Instagram', 'Facebook', 'LinkedIn', 'TikTok'];
 const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
-    const [platform, setPlatform] = useState('Instagram');
+    const [platforms, setPlatforms] = useState([]);
     const [caption, setCaption] = useState('');
     const [hashtags, setHashtags] = useState('');
     const [imageFiles, setImageFiles] = useState([]);
@@ -138,6 +146,10 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => { if (clients.length > 0) { setSelectedClientId(clients[0].id); } }, [clients]);
+
+    const handlePlatformChange = (platform) => {
+        setPlatforms(prev => prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]);
+    };
 
     const handleFileChange = (e) => {
         if (e.target.files) {
@@ -167,11 +179,11 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!caption || imageFiles.length === 0 || !selectedClientId) { alert("Please fill all fields and upload at least one image."); return; }
+        if (!caption || imageFiles.length === 0 || !selectedClientId || platforms.length === 0) { alert("Please fill all fields, select at least one platform, and upload at least one image."); return; }
         setIsUploading(true);
         try {
             const uploadedImageUrls = await uploadImages(imageFiles);
-            const newPost = { platform, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid] };
+            const newPost = { platforms, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid] };
             onPostCreated(newPost);
         } catch (error) {
             console.error("Image upload failed:", error);
@@ -184,7 +196,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Assign to Client</label><select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"><option value="" disabled>Select a client...</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-2">Platform</label><select value={platform} onChange={e => setPlatform(e.target.value)} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"><option>Instagram</option><option>Facebook</option><option>LinkedIn</option></select></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={caption} onChange={e => setCaption(e.target.value)} rows="4" placeholder="Write a compelling caption..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#realestate #newlisting #dreamhome" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
             <div>
@@ -228,8 +240,8 @@ const formatTimestamp = (isoString) => {
     const diffDays = Math.round(diffHours / 24);
 
     if (diffSeconds < 60) return 'just now';
-    if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return 'yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -238,7 +250,7 @@ const formatTimestamp = (isoString) => {
 const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({ caption: '', hashtags: '', imageUrls: [] });
+    const [editData, setEditData] = useState({ caption: '', hashtags: '', imageUrls: [], platforms: [] });
     const [newImageFiles, setNewImageFiles] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -246,7 +258,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
 
     useEffect(() => {
         if (post) {
-            setEditData({ caption: post.caption, hashtags: post.hashtags, imageUrls: post.imageUrls || [] });
+            setEditData({ caption: post.caption, hashtags: post.hashtags, imageUrls: post.imageUrls || [], platforms: post.platforms || [] });
             setImagePreviews(post.imageUrls || []);
             setNewImageFiles([]);
             setCurrentImageIndex(0);
@@ -296,7 +308,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
         try {
             const newUploadedUrls = await uploadImages(newImageFiles);
             const finalImageUrls = [...editData.imageUrls, ...newUploadedUrls];
-            const finalPostData = { caption: editData.caption, hashtags: editData.hashtags, imageUrls: finalImageUrls, seenBy: [user.uid] };
+            const finalPostData = { caption: editData.caption, hashtags: editData.hashtags, imageUrls: finalImageUrls, platforms: editData.platforms, seenBy: [user.uid] };
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
         } catch (error) {
@@ -306,6 +318,10 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
             setIsUploading(false);
         }
     };
+    
+    const handlePlatformChange = (platform) => {
+        setEditData(prev => ({...prev, platforms: prev.platforms.includes(platform) ? prev.platforms.filter(p => p !== platform) : [...prev.platforms, platform]}));
+    };
 
     const nextImage = () => setCurrentImageIndex(prev => (prev + 1) % (imagePreviews.length || 1));
     const prevImage = () => setCurrentImageIndex(prev => (prev - 1 + (imagePreviews.length || 1)) % (imagePreviews.length || 1));
@@ -313,11 +329,12 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     if (!post) return null;
 
     return (
-        <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post?.platform} Post`}>
+        <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ')} Post`}>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                     {isEditing ? (
                         <>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={editData.platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Images ({imagePreviews.length} / 5)</label>
                                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF up to 10MB</p></div></div>
                                 {imagePreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{imagePreviews.map((preview, index) => (<div key={preview} className="relative group"><img src={preview} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" /><button type="button" onClick={() => removeImage(index, index < editData.imageUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
@@ -389,7 +406,7 @@ const Portal = ({ user, setNotification }) => {
     const handleCreatePost = async (newPostData) => { try { await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); setIsNewPostModalOpen(false); setNotification({ message: 'Post created!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to create post.', type: 'error' }); } };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, status: 'Pending Review', updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
     const handleApprovePost = async (postId) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); setNotification({ message: 'Post approved!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to approve post.', type: 'error' }); } };
-    const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; if (user.role === 'client') { updatePayload.status = 'Revisions Requested'; } await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
+    const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; if (user.role === 'client') { updatePayload.status = 'Revisions Requested'; updatePayload.revisionCount = increment(1); } await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const filteredPosts = useMemo(() => {
