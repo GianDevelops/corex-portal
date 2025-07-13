@@ -8,7 +8,7 @@ import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Thumb
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
@@ -453,43 +453,41 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <div className="flex-1 overflow-hidden">
-                <main className="h-full flex flex-col">
-                    <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
-                        {user.role === 'designer' && (
-                            <div className="mb-6 flex justify-between items-center flex-shrink-0">
-                                 <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
-                                    <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active Posts</button>
-                                    <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Filter size={16} className="text-gray-500" />
-                                    <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
-                                        <option value="all">All Clients</option>
-                                        {clients.map(client => (
-                                            <option key={client.id} value={client.id}>{client.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+            <main className="flex-1 flex flex-col min-h-0">
+                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
+                    {user.role === 'designer' && (
+                        <div className="mb-6 flex justify-between items-center flex-shrink-0">
+                             <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
+                                <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active Posts</button>
+                                <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                             </div>
-                        )}
-                        {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
-                            <div className={`grid gap-6 flex-1 min-h-0 ${viewMode === 'archived' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : (user.role === 'designer' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3')}`}>
-                                {Object.entries(columns).map(([status, postsInColumn]) => (
-                                    <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
-                                        <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                        <div className="overflow-y-auto p-4 pt-0">
-                                            <div className="space-y-4">
-                                                {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
-                                            </div>
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500" />
+                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Clients</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                    {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
+                        <div className={`grid gap-6 flex-1 min-h-0 ${viewMode === 'archived' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : (user.role === 'designer' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3')}`}>
+                            {Object.entries(columns).map(([status, postsInColumn]) => (
+                                <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
+                                    <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
+                                    <div className="flex-1 overflow-y-auto p-4 pt-0">
+                                        <div className="space-y-4">
+                                            {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </main>
-            </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </main>
             <Modal isOpen={isNewPostModalOpen} onClose={() => setIsNewPostModalOpen(false)} title="Create New Social Media Post">
                 <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} />
             </Modal>
