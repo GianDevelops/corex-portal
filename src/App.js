@@ -8,12 +8,12 @@ import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Thumb
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    authDomain: "social-hub-d1682.firebaseapp.com",
+    projectId: "social-hub-d1682",
+    storageBucket: "social-hub-d1682.firebasestorage.app",
+    messagingSenderId: "629544933010",
+    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
 };
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
