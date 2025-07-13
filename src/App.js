@@ -475,10 +475,12 @@ const Portal = ({ user, setNotification }) => {
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
                         <div className={`grid gap-6 flex-1 min-h-0 ${viewMode === 'archived' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : (user.role === 'designer' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3')}`}>
                             {Object.entries(columns).map(([status, postsInColumn]) => (
-                                <div key={status} className="bg-gray-100 rounded-xl p-4 flex flex-col">
-                                    <h2 className="text-lg font-bold text-gray-800 mb-4 px-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                    <div className="flex-1 space-y-4 overflow-y-auto p-1">
-                                        {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                <div key={status} className="bg-gray-100 rounded-xl flex flex-col min-h-0">
+                                    <h2 className="text-lg font-bold text-gray-800 p-4 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
+                                    <div className="overflow-y-auto p-4 pt-0">
+                                        <div className="space-y-4">
+                                            {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
