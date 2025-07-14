@@ -442,7 +442,7 @@ const Portal = ({ user, setNotification }) => {
     }, [filteredPosts, viewMode]);
 
     return (
-        <div className="bg-gray-50 text-gray-800 h-screen font-sans flex flex-col">
+        <div className="bg-gray-50 text-gray-800 min-h-screen font-sans flex flex-col">
             <header className="sticky top-0 bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
