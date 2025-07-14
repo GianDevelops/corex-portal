@@ -453,8 +453,8 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="flex-1 flex flex-col min-h-0">
-                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
+            <main className="flex-1 overflow-hidden">
+                <div className="h-full flex flex-col max-w-7xl w-full mx-auto p-4 md:p-8">
                     {user.role === 'designer' && (
                         <div className="mb-6 flex justify-between items-center flex-shrink-0">
                              <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
