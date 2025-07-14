@@ -453,8 +453,8 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="flex-1 flex flex-col min-h-0">
-                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
+            <main className="flex-1 overflow-hidden">
+                <div className="h-full flex flex-col max-w-7xl w-full mx-auto p-4 md:p-8">
                     {user.role === 'designer' && (
                         <div className="mb-6 flex justify-between items-center flex-shrink-0">
                              <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
@@ -478,7 +478,7 @@ const Portal = ({ user, setNotification }) => {
                                 {Object.entries(columns).map(([status, postsInColumn]) => (
                                     <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                                         <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                        <div className="overflow-y-auto p-4 pt-0">
+                                        <div className="flex-1 overflow-y-auto p-4 pt-0">
                                             <div className="space-y-4">
                                                 {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                             </div>
