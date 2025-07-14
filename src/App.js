@@ -14,6 +14,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
     storageBucket: "social-hub-d1682.firebasestorage.app",
     messagingSenderId: "629544933010",
     appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+};
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
 
