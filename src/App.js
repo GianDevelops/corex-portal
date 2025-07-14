@@ -87,7 +87,7 @@ const AuthScreen = ({ setNotification }) => {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
             <div className="w-full max-w-md">
-                <div className="text-center mb-8"><h1 className="text-4xl font-bold text-gray-800">CoreX Social Hub</h1><p className="text-gray-500 mt-2">{isLogin ? 'Welcome back! Please sign in.' : 'Create your account to get started.'}</p></div>
+                <div className="text-center mb-8"><h1 className="text-4xl font-bold text-gray-800">Core<span className="text-green-600">X</span> Social Hub</h1><p className="text-gray-500 mt-2">{isLogin ? 'Welcome back! Please sign in.' : 'Create your account to get started.'}</p></div>
                 <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
                     <form onSubmit={handleAuthAction} className="space-y-6">
                         {!isLogin && (<><div><label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label><input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-gray-100 border border-gray-300 rounded-lg p-3 text-gray-800 focus:ring-2 focus:ring-green-500 transition" /></div><div><label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label><select value={role} onChange={e => setRole(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-lg p-3 text-gray-800 focus:ring-2 focus:ring-green-500 transition"><option value="client">Client</option><option value="designer">Designer</option></select></div></>)}
@@ -445,7 +445,7 @@ const Portal = ({ user, setNotification }) => {
         <div className="bg-gray-50 text-gray-800 h-screen font-sans flex flex-col">
             <header className="bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200 flex-shrink-0">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">CoreX</h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
+                    <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
                     <div className="flex items-center gap-6">
                         <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
                         {user.role === 'designer' && (<button onClick={() => setIsNewPostModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
@@ -453,8 +453,8 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="flex-1 flex flex-col min-h-0">
-                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
+            <main className="flex-1 overflow-hidden">
+                <div className="h-full flex flex-col max-w-7xl w-full mx-auto p-4 md:p-8">
                     {user.role === 'designer' && (
                         <div className="mb-6 flex justify-between items-center flex-shrink-0">
                              <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
@@ -477,7 +477,7 @@ const Portal = ({ user, setNotification }) => {
                             {Object.entries(columns).map(([status, postsInColumn]) => (
                                 <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                                     <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex items-center flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
-                                    <div className="flex-1 overflow-y-auto p-4 pt-0">
+                                    <div className="overflow-y-auto p-4 pt-0">
                                         <div className="space-y-4">
                                             {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                         </div>
