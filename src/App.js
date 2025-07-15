@@ -4,13 +4,22 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon } from 'lucide-react';
-import { Calendar, dateFnsLocalizer } from 'https://esm.sh/react-big-calendar@1.8.2';
-import format from 'https://esm.sh/date-fns@2.30.0/format';
-import parse from 'https://esm.sh/date-fns@2.30.0/parse';
-import startOfWeek from 'https://esm.sh/date-fns@2.30.0/startOfWeek';
-import getDay from 'https://esm.sh/date-fns@2.30.0/getDay';
-import enUS from 'https://esm.sh/date-fns@2.30.0/locale/en-US';
-import "https://esm.sh/react-big-calendar@1.8.2/lib/css/react-big-calendar.css";
+
+// FIX: Switched to jsdelivr.net CDN with +esm flag to resolve dynamic require error.
+import { Calendar, dateFnsLocalizer } from 'https://cdn.jsdelivr.net/npm/react-big-calendar@1.8.2/+esm';
+import format from 'https://cdn.jsdelivr.net/npm/date-fns@2.30.0/esm/format/index.js';
+import parse from 'https://cdn.jsdelivr.net/npm/date-fns@2.30.0/esm/parse/index.js';
+import startOfWeek from 'https://cdn.jsdelivr.net/npm/date-fns@2.30.0/esm/startOfWeek/index.js';
+import getDay from 'https://cdn.jsdelivr.net/npm/date-fns@2.30.0/esm/getDay/index.js';
+import enUS from 'https://cdn.jsdelivr.net/npm/date-fns@2.30.0/esm/locale/en-US/index.js';
+
+const cssUrl = 'https://cdn.jsdelivr.net/npm/react-big-calendar@1.8.2/lib/css/react-big-calendar.css';
+if (!document.querySelector(`link[href="${cssUrl}"]`)) {
+    const link = document.createElement('link');
+    link.href = cssUrl;
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+}
 
 
 // --- Date Localizer for Calendar ---
