@@ -13,13 +13,13 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
     firebaseConfig = {
-    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
-    authDomain: "social-hub-d1682.firebaseapp.com",
-    projectId: "social-hub-d1682",
-    storageBucket: "social-hub-d1682.firebasestorage.app",
-    messagingSenderId: "629544933010",
-    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
-
+        apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+        authDomain: "social-hub-d1682.firebaseapp.com",
+        projectId: "social-hub-d1682",
+        storageBucket: "social-hub-d1682.firebasestorage.app",
+        messagingSenderId: "629544933010",
+        appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+    };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
@@ -391,13 +391,12 @@ const CalendarView = ({ posts, onSelectEvent }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
     const startDate = new Date(startOfMonth);
     startDate.setDate(startDate.getDate() - startDate.getDay());
 
     const days = [];
     let date = new Date(startDate);
-    while (days.length < 42) { // Always render 6 weeks
+    while (days.length < 42) {
         days.push(new Date(date));
         date.setDate(date.getDate() + 1);
     }
