@@ -3,15 +3,16 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-// FIX: Removed unused CalendarIcon to fix build error.
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
+// FIX: Refactored to prevent build-time parsing errors.
 let firebaseConfig;
-if (typeof __firebase_config !== 'undefined') {
+if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
+    firebaseConfig = {
     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
@@ -19,7 +20,6 @@ if (typeof __firebase_config !== 'undefined') {
     messagingSenderId: "629544933010",
     appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
 
-    };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
@@ -153,6 +153,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const [imageFiles, setImageFiles] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
     const [selectedClientId, setSelectedClientId] = useState('');
+    const [scheduledAt, setScheduledAt] = useState('');
     const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => { if (clients.length > 0) { setSelectedClientId(clients[0].id); } }, [clients]);
@@ -189,11 +190,11 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!caption || imageFiles.length === 0 || !selectedClientId || platforms.length === 0) { alert("Please fill all fields, select at least one platform, and upload at least one image."); return; }
+        if (!caption || imageFiles.length === 0 || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields, select a schedule date, at least one platform, and upload at least one image."); return; }
         setIsUploading(true);
         try {
             const uploadedImageUrls = await uploadImages(imageFiles);
-            const newPost = { platforms, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid] };
+            const newPost = { platforms, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
             onPostCreated(newPost);
         } catch (error) {
             console.error("Image upload failed:", error);
@@ -206,6 +207,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Assign to Client</label><select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"><option value="" disabled>Select a client...</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label><input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={caption} onChange={e => setCaption(e.target.value)} rows="4" placeholder="Write a compelling caption..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#realestate #newlisting #dreamhome" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
@@ -260,7 +262,7 @@ const formatTimestamp = (isoString) => {
 const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({ caption: '', hashtags: '', imageUrls: [], platforms: [] });
+    const [editData, setEditData] = useState({ caption: '', hashtags: '', imageUrls: [], platforms: [], scheduledAt: '' });
     const [newImageFiles, setNewImageFiles] = useState([]);
     const [imagePreviews, setImagePreviews] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -268,11 +270,15 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
 
     useEffect(() => {
         if (post) {
+            const scheduledAtDate = post.scheduledAt?.toDate ? post.scheduledAt.toDate() : post.scheduledAt ? new Date(post.scheduledAt) : null;
+            const formattedScheduleDate = scheduledAtDate ? `${scheduledAtDate.getFullYear()}-${String(scheduledAtDate.getMonth() + 1).padStart(2, '0')}-${String(scheduledAtDate.getDate()).padStart(2, '0')}T${String(scheduledAtDate.getHours()).padStart(2, '0')}:${String(scheduledAtDate.getMinutes()).padStart(2, '0')}`: '';
+            
             setEditData({ 
                 caption: post.caption, 
                 hashtags: post.hashtags, 
                 imageUrls: post.imageUrls || [], 
                 platforms: post.platforms || [],
+                scheduledAt: formattedScheduleDate
             });
             setImagePreviews(post.imageUrls || []);
             setNewImageFiles([]);
@@ -329,6 +335,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                 imageUrls: finalImageUrls, 
                 platforms: editData.platforms, 
                 seenBy: [user.uid],
+                scheduledAt: new Date(editData.scheduledAt)
             };
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -355,6 +362,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                 <div className="space-y-4">
                     {isEditing ? (
                         <>
+                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label><input type="datetime-local" value={editData.scheduledAt} onChange={e => setEditData({...editData, scheduledAt: e.target.value})} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={editData.platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Images ({imagePreviews.length} / 5)</label>
                                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF up to 10MB</p></div></div>
@@ -367,6 +375,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                     ) : (
                         <>
                             <div className="relative"><img src={imagePreviews?.[currentImageIndex] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {imagePreviews?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {imagePreviews.length}</div></>)}</></div>
+                            <div><h4 className="font-bold text-lg text-gray-800 mb-1">Scheduled for</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{editData.scheduledAt ? new Date(editData.scheduledAt).toLocaleString() : 'Not scheduled'}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Caption</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Hashtags</h4><p className="text-gray-500 bg-gray-50 p-3 rounded-lg break-all">{post?.hashtags}</p></div>
                         </>
@@ -378,6 +387,83 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     );
 };
 
+const CalendarView = ({ posts, onSelectEvent }) => {
+    const [currentDate, setCurrentDate] = useState(new Date());
+
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const startDate = new Date(startOfMonth);
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+
+    const days = [];
+    let date = new Date(startDate);
+    while (days.length < 42) { // Always render 6 weeks
+        days.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+    }
+    
+    const postsByDay = useMemo(() => {
+        const map = new Map();
+        posts.forEach(post => {
+            if (post.scheduledAt?.toDate) {
+                const postDate = post.scheduledAt.toDate().toDateString();
+                if (!map.has(postDate)) {
+                    map.set(postDate, []);
+                }
+                map.get(postDate).push(post);
+            }
+        });
+        return map;
+    }, [posts]);
+
+    const changeMonth = (offset) => {
+        setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+    };
+
+    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return (
+        <div className="bg-white p-4 rounded-xl shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200">‹</button>
+                <h2 className="text-xl font-bold">
+                    {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}
+                </h2>
+                <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200">›</button>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-600">
+                {weekDays.map(day => <div key={day} className="py-2">{day}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+                {days.map((day, index) => {
+                    const dayKey = day.toDateString();
+                    const dayPosts = postsByDay.get(dayKey) || [];
+                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                    return (
+                        <div key={index} className={`border rounded-lg p-2 h-32 flex flex-col ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}>
+                            <span className={`font-bold ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>{day.getDate()}</span>
+                            <div className="flex-grow overflow-y-auto text-left text-xs space-y-1 mt-1">
+                                {dayPosts.map(post => {
+                                    let bgColor = 'bg-gray-200 text-gray-800';
+                                    if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
+                                    if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
+                                    if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
+
+                                    return (
+                                        <div key={post.id} onClick={() => onSelectEvent(post)} className={`p-1 rounded cursor-pointer hover:opacity-75 ${bgColor}`}>
+                                            <p className="truncate font-semibold">{post.caption}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 
 const Portal = ({ user, setNotification }) => {
     const [posts, setPosts] = useState([]);
@@ -386,7 +472,7 @@ const Portal = ({ user, setNotification }) => {
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('active'); // 'active' or 'archived'
+    const [viewMode, setViewMode] = useState('active'); // 'active', 'archived', or 'calendar'
 
     const markAsSeen = async (postId) => {
         const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
@@ -435,17 +521,17 @@ const Portal = ({ user, setNotification }) => {
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const filteredPosts = useMemo(() => {
-        const byArchiveStatus = posts.filter(post => {
-            if (viewMode === 'active') {
-                return post.status !== 'Archived';
-            }
-            return post.status === 'Archived';
-        });
+        let postsToFilter = posts;
+        if (viewMode === 'active') {
+             postsToFilter = posts.filter(post => post.status !== 'Archived');
+        } else if (viewMode === 'archived') {
+            postsToFilter = posts.filter(post => post.status === 'Archived');
+        }
 
         if (user.role === 'designer' && clientFilter !== 'all') {
-            return byArchiveStatus.filter(post => post.clientId === clientFilter);
+            return postsToFilter.filter(post => post.clientId === clientFilter);
         }
-        return byArchiveStatus;
+        return postsToFilter;
     }, [posts, clientFilter, user.role, viewMode]);
 
     const columns = useMemo(() => {
@@ -473,7 +559,8 @@ const Portal = ({ user, setNotification }) => {
                 <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
                      <div className="mb-6 flex justify-between items-center flex-shrink-0">
                          <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
-                            <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active Posts</button>
+                            <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active</button>
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                         </div>
                         {user.role === 'designer' && (
@@ -489,26 +576,30 @@ const Portal = ({ user, setNotification }) => {
                         )}
                     </div>
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
-                        viewMode === 'active' ? (
-                            <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                                {Object.entries(columns).map(([status, postsInColumn]) => (
-                                    <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
-                                        <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
-                                        <div className="overflow-y-auto p-4 pt-0">
-                                            <div className="space-y-4">
-                                                {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                        <>
+                            {viewMode === 'active' && (
+                                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                                    {Object.entries(columns).map(([status, postsInColumn]) => (
+                                        <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
+                                            <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
+                                            <div className="overflow-y-auto p-4 pt-0">
+                                                <div className="space-y-4">
+                                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="overflow-y-auto flex-1">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    {filteredPosts.length > 0 ? (filteredPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
+                                    ))}
                                 </div>
-                            </div>
-                        )
+                            )}
+                             {viewMode === 'calendar' && <CalendarView posts={filteredPosts} onSelectEvent={handleOpenReview} />}
+                             {viewMode === 'archived' && (
+                                <div className="overflow-y-auto flex-1">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        {filteredPosts.length > 0 ? (filteredPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </main>
