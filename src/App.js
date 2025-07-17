@@ -12,12 +12,12 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
     firebaseConfig = {
-        apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
-        authDomain: "social-hub-d1682.firebaseapp.com",
-        projectId: "social-hub-d1682",
-        storageBucket: "social-hub-d1682.firebasestorage.app",
-        messagingSenderId: "629544933010",
-        appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    authDomain: "social-hub-d1682.firebaseapp.com",
+    projectId: "social-hub-d1682",
+    storageBucket: "social-hub-d1682.firebasestorage.app",
+    messagingSenderId: "629544933010",
+    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
     };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
@@ -142,7 +142,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive }) => {
         <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
             <div className="relative">
                 {isVideo ? (
-                    <video src={post.mediaUrls[0]} className="w-full h-32 object-cover bg-black" />
+                    <video src={post.mediaUrls[0]} className="w-full h-32 object-contain bg-black" />
                 ) : (
                     <img src={post.mediaUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                 )}
@@ -245,7 +245,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
                         {mediaPreviews.map((preview, index) => (
                             <div key={index} className="relative group">
                                 {preview.type.startsWith('video') ? (
-                                    <video src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" />
+                                    <video src={preview.url} className="h-24 w-24 object-contain rounded-md bg-black" />
                                 ) : (
                                     <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />
                                 )}
@@ -389,7 +389,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={editData.platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({mediaPreviews.length} / 5)</label>
                                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV up to 50MB</p></div></div>
-                                {mediaPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <video src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index, index < editData.mediaUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
+                                {mediaPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <video src={preview.url} className="h-24 w-24 object-contain rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index, index < editData.mediaUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                             </div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={editData.caption} onChange={e => setEditData({...editData, caption: e.target.value})} rows="6" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={editData.hashtags} onChange={e => setEditData({...editData, hashtags: e.target.value})} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
@@ -399,7 +399,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                         <>
                             <div className="relative">
                                 {currentMedia?.type.startsWith('video') ? (
-                                    <video src={currentMedia.url} controls className="rounded-lg w-full h-80 object-cover bg-black" />
+                                    <video src={currentMedia.url} controls className="rounded-lg w-full h-80 object-contain bg-black" />
                                 ) : (
                                     <img src={currentMedia?.url || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                                 )}
