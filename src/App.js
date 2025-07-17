@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -525,7 +525,7 @@ const Portal = ({ user, setNotification }) => {
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('active'); // 'active', 'archived', or 'calendar'
+    const [viewMode, setViewMode] = useState('bucket'); // 'bucket', 'pending', 'revision', 'approved', 'calendar', 'archived'
 
     const markAsSeen = async (postId) => {
         const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
@@ -573,28 +573,36 @@ const Portal = ({ user, setNotification }) => {
     const handleArchivePost = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Archived', updatedAt: serverTimestamp() }); setNotification({ message: 'Post archived.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to archive post.', type: 'error' }); }};
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
-    const filteredPosts = useMemo(() => {
-        let postsToFilter = posts;
-        if (viewMode === 'active') {
-             postsToFilter = posts.filter(post => post.status !== 'Archived');
-        } else if (viewMode === 'archived') {
-            postsToFilter = posts.filter(post => post.status === 'Archived');
-        }
-
+    const clientFilteredPosts = useMemo(() => {
         if (user.role === 'designer' && clientFilter !== 'all') {
-            return postsToFilter.filter(post => post.clientId === clientFilter);
+            return posts.filter(post => post.clientId === clientFilter);
         }
-        return postsToFilter;
-    }, [posts, clientFilter, user.role, viewMode]);
+        return posts;
+    }, [posts, clientFilter, user.role]);
+
+    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived'), [clientFilteredPosts]);
+    const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
 
     const columns = useMemo(() => {
-        if (viewMode !== 'active') return {};
         return {
-            'Pending Review': filteredPosts.filter(p => p.status === 'Pending Review'),
-            'Revisions Requested': filteredPosts.filter(p => p.status === 'Revisions Requested'),
-            'Approved': filteredPosts.filter(p => p.status === 'Approved'),
+            'Pending Review': activePosts.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': activePosts.filter(p => p.status === 'Revisions Requested'),
+            'Approved': activePosts.filter(p => p.status === 'Approved'),
         };
-    }, [filteredPosts, viewMode]);
+    }, [activePosts]);
+
+    const singleStatusPosts = useMemo(() => {
+        if (viewMode === 'pending') return activePosts.filter(p => p.status === 'Pending Review');
+        if (viewMode === 'revision') return activePosts.filter(p => p.status === 'Revisions Requested');
+        if (viewMode === 'approved') return activePosts.filter(p => p.status === 'Approved');
+        return [];
+    }, [activePosts, viewMode]);
+    
+    const statusTitles = {
+        pending: 'Pending Review',
+        revision: 'Revisions Requested',
+        approved: 'Approved',
+    };
 
     return (
         <div className="bg-gray-50 text-gray-800 min-h-screen font-sans flex flex-col">
@@ -611,8 +619,11 @@ const Portal = ({ user, setNotification }) => {
             <main className="flex-1 flex flex-col min-h-0">
                 <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
                      <div className="mb-6 flex justify-between items-center flex-shrink-0">
-                         <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
-                            <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active</button>
+                         <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg flex-wrap">
+                            <button onClick={() => setViewMode('bucket')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Bucket View</button>
+                            <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending Review</button>
+                            <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision Requested</button>
+                            <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
                             <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                         </div>
@@ -630,7 +641,7 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
                         <>
-                            {viewMode === 'active' && (
+                            {viewMode === 'bucket' && (
                                 <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                                     {Object.entries(columns).map(([status, postsInColumn]) => (
                                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
@@ -644,11 +655,19 @@ const Portal = ({ user, setNotification }) => {
                                     ))}
                                 </div>
                             )}
-                             {viewMode === 'calendar' && <CalendarView posts={filteredPosts} onSelectEvent={handleOpenReview} />}
-                             {viewMode === 'archived' && (
+                            {(viewMode === 'pending' || viewMode === 'revision' || viewMode === 'approved') && (
+                                <div className="overflow-y-auto flex-1">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{singleStatusPosts.length}</span></h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        {singleStatusPosts.length > 0 ? (singleStatusPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                    </div>
+                                </div>
+                            )}
+                            {viewMode === 'calendar' && <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} />}
+                            {viewMode === 'archived' && (
                                 <div className="overflow-y-auto flex-1">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {filteredPosts.length > 0 ? (filteredPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
+                                        {archivedPosts.length > 0 ? (archivedPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
                                     </div>
                                 </div>
                             )}
