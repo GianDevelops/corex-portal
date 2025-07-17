@@ -3,24 +3,18 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Video } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
-// FIX: Refactored to prevent build-time parsing errors.
-let firebaseConfig;
-if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-    firebaseConfig = JSON.parse(__firebase_config);
-} else {
-    firebaseConfig = {
-        apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
-        authDomain: "social-hub-d1682.firebaseapp.com",
-        projectId: "social-hub-d1682",
-        storageBucket: "social-hub-d1682.firebasestorage.app",
-        messagingSenderId: "629544933010",
-        appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
-    };
-}
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    authDomain: "social-hub-d1682.firebaseapp.com",
+    projectId: "social-hub-d1682",
+    storageBucket: "social-hub-d1682.firebasestorage.app",
+    messagingSenderId: "629544933010",
+    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+};
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
 
@@ -136,10 +130,21 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive }) => {
         const suffix = count === 1 ? 'st' : count === 2 ? 'nd' : count === 3 ? 'rd' : 'th';
         return `${count}${suffix} Revision`;
     };
+    
+    const firstMedia = post.media?.[0];
 
     return (
         <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
-            <div className="relative"><img src={post.imageUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post graphic" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {post.imageUrls?.length > 1 && (<div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm"><ImageIcon size={12} className="mr-1.5" /> {post.imageUrls.length}</div>)}</></div>
+            <div className="relative">
+                {firstMedia?.type === 'video' ? (
+                    <div className="w-full h-32 bg-black flex items-center justify-center">
+                        <Video className="w-12 h-12 text-white" />
+                    </div>
+                ) : (
+                    <img src={firstMedia?.url || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/>
+                )}
+                {post.media?.length > 1 && (<div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm"><ImageIcon size={12} className="mr-1.5" /> {post.media.length}</div>)}
+            </div>
             <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div><div className="flex items-center gap-2">{canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} className="flex items-center text-sm bg-gray-700 hover:bg-black text-white font-bold py-2 px-3 rounded-lg transition-colors"><Edit size={16} className="mr-2" />Revise</button>)}{canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}{canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} className="flex items-center text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Archive size={16} className="mr-2" />Archive</button>)}</div></div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
         </div>
     );
@@ -150,10 +155,9 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const [platforms, setPlatforms] = useState([]);
     const [caption, setCaption] = useState('');
     const [hashtags, setHashtags] = useState('');
-    const [imageFiles, setImageFiles] = useState([]);
-    const [imagePreviews, setImagePreviews] = useState([]);
+    const [mediaFiles, setMediaFiles] = useState([]);
+    const [mediaPreviews, setMediaPreviews] = useState([]);
     const [selectedClientId, setSelectedClientId] = useState('');
-    const [scheduledAt, setScheduledAt] = useState('');
     const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => { if (clients.length > 0) { setSelectedClientId(clients[0].id); } }, [clients]);
@@ -165,40 +169,46 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const handleFileChange = (e) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
-            if ((imageFiles.length + files.length) > 5) { alert("You can only upload a maximum of 5 images."); return; }
-            setImageFiles(prev => [...prev, ...files]);
-            const newPreviews = files.map(file => URL.createObjectURL(file));
-            setImagePreviews(prev => [...prev, ...newPreviews]);
+            if ((mediaFiles.length + files.length) > 5) { alert("You can only upload a maximum of 5 files."); return; }
+            setMediaFiles(prev => [...prev, ...files]);
+            const newPreviews = files.map(file => ({
+                url: URL.createObjectURL(file),
+                type: file.type.startsWith('video') ? 'video' : 'image'
+            }));
+            setMediaPreviews(prev => [...prev, ...newPreviews]);
         }
     };
     
-    const removeImage = (index) => {
-        setImageFiles(prev => prev.filter((_, i) => i !== index));
-        setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    const removeMedia = (index) => {
+        setMediaFiles(prev => prev.filter((_, i) => i !== index));
+        setMediaPreviews(prev => prev.filter((_, i) => i !== index));
     };
 
-    const uploadImages = async (files) => {
-        const imageUrls = [];
+    const uploadFiles = async (files) => {
+        const mediaData = [];
         for (const file of files) {
             const storageRef = ref(storage, `posts/${Date.now()}_${file.name}`);
             await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(storageRef);
-            imageUrls.push(downloadURL);
+            mediaData.push({
+                url: downloadURL,
+                type: file.type.startsWith('video') ? 'video' : 'image'
+            });
         }
-        return imageUrls;
+        return mediaData;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!caption || imageFiles.length === 0 || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields, select a schedule date, at least one platform, and upload at least one image."); return; }
+        if (!caption || mediaFiles.length === 0 || !selectedClientId || platforms.length === 0) { alert("Please fill all fields, select at least one platform, and upload at least one file."); return; }
         setIsUploading(true);
         try {
-            const uploadedImageUrls = await uploadImages(imageFiles);
-            const newPost = { platforms, caption, hashtags, imageUrls: uploadedImageUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
+            const uploadedMedia = await uploadFiles(mediaFiles);
+            const newPost = { platforms, caption, hashtags, media: uploadedMedia, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid] };
             onPostCreated(newPost);
         } catch (error) {
-            console.error("Image upload failed:", error);
-            alert("Image upload failed. Please try again.");
+            console.error("File upload failed:", error);
+            alert("File upload failed. Please try again.");
         } finally {
             setIsUploading(false);
         }
@@ -207,31 +217,37 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Assign to Client</label><select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"><option value="" disabled>Select a client...</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label><input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={caption} onChange={e => setCaption(e.target.value)} rows="4" placeholder="Write a compelling caption..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#realestate #newlisting #dreamhome" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Images (up to 5)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Media (up to 5 files)</label>
                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                     <div className="text-center">
                         <UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                         <div className="mt-4 flex text-sm leading-6 text-gray-600">
                             <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500">
                                 <span>Upload files</span>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleFileChange} />
+                                <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/*,video/*" onChange={handleFileChange} />
                             </label>
                             <p className="pl-1">or drag and drop</p>
                         </div>
-                        <p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF up to 10MB</p>
+                        <p className="text-xs leading-5 text-gray-600">Images and Videos up to 10MB</p>
                     </div>
                 </div>
-                {imagePreviews.length > 0 && (
+                {mediaPreviews.length > 0 && (
                     <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">
-                        {imagePreviews.map((preview, index) => (
+                        {mediaPreviews.map((preview, index) => (
                             <div key={index} className="relative group">
-                                <img src={preview} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />
-                                <button type="button" onClick={() => removeImage(index)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button>
+                                {preview.type === 'video' ? (
+                                    <div className="relative h-24 w-24">
+                                        <video src={preview.url} className="h-full w-full object-cover rounded-md" />
+                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Video className="h-6 w-6 text-white" /></div>
+                                    </div>
+                                ) : (
+                                    <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />
+                                )}
+                                <button type="button" onClick={() => removeMedia(index)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button>
                             </div>
                         ))}
                     </div>
@@ -262,27 +278,18 @@ const formatTimestamp = (isoString) => {
 const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({ caption: '', hashtags: '', imageUrls: [], platforms: [], scheduledAt: '' });
+    const [editData, setEditData] = useState({ caption: '', hashtags: '', media: [], platforms: [] });
     const [newImageFiles, setNewImageFiles] = useState([]);
-    const [imagePreviews, setImagePreviews] = useState([]);
+    const [mediaPreviews, setMediaPreviews] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     useEffect(() => {
         if (post) {
-            const scheduledAtDate = post.scheduledAt?.toDate ? post.scheduledAt.toDate() : post.scheduledAt ? new Date(post.scheduledAt) : null;
-            const formattedScheduleDate = scheduledAtDate ? `${scheduledAtDate.getFullYear()}-${String(scheduledAtDate.getMonth() + 1).padStart(2, '0')}-${String(scheduledAtDate.getDate()).padStart(2, '0')}T${String(scheduledAtDate.getHours()).padStart(2, '0')}:${String(scheduledAtDate.getMinutes()).padStart(2, '0')}`: '';
-            
-            setEditData({ 
-                caption: post.caption, 
-                hashtags: post.hashtags, 
-                imageUrls: post.imageUrls || [], 
-                platforms: post.platforms || [],
-                scheduledAt: formattedScheduleDate
-            });
-            setImagePreviews(post.imageUrls || []);
+            setEditData({ caption: post.caption, hashtags: post.hashtags, media: post.media || [], platforms: post.platforms || [] });
+            setMediaPreviews(post.media || []);
             setNewImageFiles([]);
-            setCurrentImageIndex(0);
+            setCurrentMediaIndex(0);
         }
     }, [post, isEditing]);
 
@@ -291,52 +298,42 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const handleFileChange = (e) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
-            if ((editData.imageUrls.length + newImageFiles.length + files.length) > 5) { alert("You can only have a maximum of 5 images."); return; }
+            if ((editData.media.length + newImageFiles.length + files.length) > 5) { alert("You can only have a maximum of 5 files."); return; }
             setNewImageFiles(prev => [...prev, ...files]);
-            const newPreviews = files.map(file => URL.createObjectURL(file));
-            setImagePreviews(prev => [...prev, ...newPreviews]);
+            const newPreviews = files.map(file => ({ url: URL.createObjectURL(file), type: file.type.startsWith('video') ? 'video' : 'image' }));
+            setMediaPreviews(prev => [...prev, ...newPreviews]);
         }
     };
 
-    const removeImage = (index, isExisting) => {
+    const removeMedia = (index, isExisting) => {
         if (isExisting) {
-            setEditData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== index) }));
-            const newImagePreviews = [...imagePreviews];
-            newImagePreviews.splice(index, 1);
-            setImagePreviews(newImagePreviews);
+            setEditData(prev => ({ ...prev, media: prev.media.filter((_, i) => i !== index) }));
         } else {
-            const newFileIndex = index - editData.imageUrls.length;
+            const newFileIndex = index - editData.media.length;
             setNewImageFiles(prev => prev.filter((_, i) => i !== newFileIndex));
-            const newImagePreviews = [...imagePreviews];
-            newImagePreviews.splice(index, 1);
-            setImagePreviews(newImagePreviews);
         }
+        const newMediaPreviews = [...mediaPreviews];
+        newMediaPreviews.splice(index, 1);
+        setMediaPreviews(newMediaPreviews);
     };
 
-    const uploadImages = async (files) => {
-        const urls = [];
+    const uploadFiles = async (files) => {
+        const mediaData = [];
         for (const file of files) {
             const storageRef = ref(storage, `posts/${Date.now()}_${file.name}`);
             await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(storageRef);
-            urls.push(downloadURL);
+            mediaData.push({ url: downloadURL, type: file.type.startsWith('video') ? 'video' : 'image' });
         }
-        return urls;
+        return mediaData;
     };
 
     const handleSaveChanges = async () => {
         setIsUploading(true);
         try {
-            const newUploadedUrls = await uploadImages(newImageFiles);
-            const finalImageUrls = [...editData.imageUrls, ...newUploadedUrls];
-            const finalPostData = { 
-                caption: editData.caption, 
-                hashtags: editData.hashtags, 
-                imageUrls: finalImageUrls, 
-                platforms: editData.platforms, 
-                seenBy: [user.uid],
-                scheduledAt: new Date(editData.scheduledAt)
-            };
+            const newUploadedMedia = await uploadFiles(newImageFiles);
+            const finalMedia = [...editData.media, ...newUploadedMedia];
+            const finalPostData = { caption: editData.caption, hashtags: editData.hashtags, media: finalMedia, platforms: editData.platforms, seenBy: [user.uid] };
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
         } catch (error) {
@@ -351,10 +348,12 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
         setEditData(prev => ({...prev, platforms: prev.platforms.includes(platform) ? prev.platforms.filter(p => p !== platform) : [...prev.platforms, platform]}));
     };
 
-    const nextImage = () => setCurrentImageIndex(prev => (prev + 1) % (imagePreviews.length || 1));
-    const prevImage = () => setCurrentImageIndex(prev => (prev - 1 + (imagePreviews.length || 1)) % (imagePreviews.length || 1));
+    const nextMedia = () => setCurrentMediaIndex(prev => (prev + 1) % (mediaPreviews.length || 1));
+    const prevMedia = () => setCurrentMediaIndex(prev => (prev - 1 + (mediaPreviews.length || 1)) % (mediaPreviews.length || 1));
 
     if (!post) return null;
+    
+    const currentMedia = mediaPreviews?.[currentMediaIndex];
 
     return (
         <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ')} Post`}>
@@ -362,11 +361,10 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                 <div className="space-y-4">
                     {isEditing ? (
                         <>
-                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label><input type="datetime-local" value={editData.scheduledAt} onChange={e => setEditData({...editData, scheduledAt: e.target.value})} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={editData.platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
-                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Images ({imagePreviews.length} / 5)</label>
-                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF up to 10MB</p></div></div>
-                                {imagePreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{imagePreviews.map((preview, index) => (<div key={preview} className="relative group"><img src={preview} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" /><button type="button" onClick={() => removeImage(index, index < editData.imageUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
+                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({mediaPreviews.length} / 5)</label>
+                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*,video/*" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">Images and Videos up to 10MB</p></div></div>
+                                {mediaPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type === 'video' ? <div className="relative h-24 w-24"><video src={preview.url} className="h-full w-full object-cover rounded-md" /><div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Video className="h-6 w-6 text-white" /></div></div> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index, index < editData.media.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                             </div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={editData.caption} onChange={e => setEditData({...editData, caption: e.target.value})} rows="6" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={editData.hashtags} onChange={e => setEditData({...editData, hashtags: e.target.value})} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
@@ -374,8 +372,14 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                         </>
                     ) : (
                         <>
-                            <div className="relative"><img src={imagePreviews?.[currentImageIndex] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Image'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/><> {imagePreviews?.length > 1 && (<><button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentImageIndex + 1} / {imagePreviews.length}</div></>)}</></div>
-                            <div><h4 className="font-bold text-lg text-gray-800 mb-1">Scheduled for</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{editData.scheduledAt ? new Date(editData.scheduledAt).toLocaleString() : 'Not scheduled'}</p></div>
+                            <div className="relative">
+                                {currentMedia?.type === 'video' ? (
+                                    <video src={currentMedia.url} controls className="rounded-lg w-full h-80 object-cover bg-black" />
+                                ) : (
+                                    <img src={currentMedia?.url || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Image+Error`; }}/>
+                                )}
+                                <> {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}</>
+                            </div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Caption</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Hashtags</h4><p className="text-gray-500 bg-gray-50 p-3 rounded-lg break-all">{post?.hashtags}</p></div>
                         </>
@@ -387,83 +391,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     );
 };
 
-const CalendarView = ({ posts, onSelectEvent }) => {
-    const [currentDate, setCurrentDate] = useState(new Date());
-
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const startDate = new Date(startOfMonth);
-    startDate.setDate(startDate.getDate() - startDate.getDay());
-
-    const days = [];
-    let date = new Date(startDate);
-    while (days.length < 42) {
-        days.push(new Date(date));
-        date.setDate(date.getDate() + 1);
-    }
-    
-    const postsByDay = useMemo(() => {
-        const map = new Map();
-        posts.forEach(post => {
-            if (post.scheduledAt?.toDate) {
-                const postDate = post.scheduledAt.toDate().toDateString();
-                if (!map.has(postDate)) {
-                    map.set(postDate, []);
-                }
-                map.get(postDate).push(post);
-            }
-        });
-        return map;
-    }, [posts]);
-
-    const changeMonth = (offset) => {
-        setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
-    };
-
-    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    return (
-        <div className="bg-white p-4 rounded-xl shadow-lg">
-            <div className="flex justify-between items-center mb-4">
-                <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-200">‹</button>
-                <h2 className="text-xl font-bold">
-                    {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}
-                </h2>
-                <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-200">›</button>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-600">
-                {weekDays.map(day => <div key={day} className="py-2">{day}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-                {days.map((day, index) => {
-                    const dayKey = day.toDateString();
-                    const dayPosts = postsByDay.get(dayKey) || [];
-                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                    return (
-                        <div key={index} className={`border rounded-lg p-2 h-32 flex flex-col ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}>
-                            <span className={`font-bold ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>{day.getDate()}</span>
-                            <div className="flex-grow overflow-y-auto text-left text-xs space-y-1 mt-1">
-                                {dayPosts.map(post => {
-                                    let bgColor = 'bg-gray-200 text-gray-800';
-                                    if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
-                                    if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
-                                    if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
-
-                                    return (
-                                        <div key={post.id} onClick={() => onSelectEvent(post)} className={`p-1 rounded cursor-pointer hover:opacity-75 ${bgColor}`}>
-                                            <p className="truncate font-semibold">{post.caption}</p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-
 const Portal = ({ user, setNotification }) => {
     const [posts, setPosts] = useState([]);
     const [clients, setClients] = useState([]);
@@ -471,7 +398,7 @@ const Portal = ({ user, setNotification }) => {
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('active'); // 'active', 'archived', or 'calendar'
+    const [viewMode, setViewMode] = useState('active'); // 'active' or 'archived'
 
     const markAsSeen = async (postId) => {
         const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
@@ -520,21 +447,23 @@ const Portal = ({ user, setNotification }) => {
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const filteredPosts = useMemo(() => {
-        let postsToFilter = posts;
-        if (viewMode === 'active') {
-             postsToFilter = posts.filter(post => post.status !== 'Archived');
-        } else if (viewMode === 'archived') {
-            postsToFilter = posts.filter(post => post.status === 'Archived');
-        }
+        const byArchiveStatus = posts.filter(post => {
+            if (viewMode === 'active') {
+                return post.status !== 'Archived';
+            }
+            return post.status === 'Archived';
+        });
 
         if (user.role === 'designer' && clientFilter !== 'all') {
-            return postsToFilter.filter(post => post.clientId === clientFilter);
+            return byArchiveStatus.filter(post => post.clientId === clientFilter);
         }
-        return postsToFilter;
+        return byArchiveStatus;
     }, [posts, clientFilter, user.role, viewMode]);
 
     const columns = useMemo(() => {
-        if (viewMode !== 'active') return {};
+        if (viewMode === 'archived') {
+            return { 'Archived': filteredPosts };
+        }
         return {
             'Pending Review': filteredPosts.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': filteredPosts.filter(p => p.status === 'Revisions Requested'),
@@ -543,8 +472,8 @@ const Portal = ({ user, setNotification }) => {
     }, [filteredPosts, viewMode]);
 
     return (
-        <div className="bg-gray-50 text-gray-800 min-h-screen font-sans flex flex-col">
-            <header className="sticky top-0 bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200">
+        <div className="bg-gray-50 text-gray-800 h-screen font-sans flex flex-col">
+            <header className="bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200 flex-shrink-0">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
                     <div className="flex items-center gap-6">
@@ -554,51 +483,46 @@ const Portal = ({ user, setNotification }) => {
                     </div>
                 </div>
             </header>
-            <main className="flex-1 flex flex-col min-h-0">
-                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
-                     <div className="mb-6 flex justify-between items-center flex-shrink-0">
-                         <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
-                            <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active</button>
-                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
-                            <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
+            <main className="flex-1 overflow-hidden">
+                <div className="h-full flex flex-col max-w-7xl w-full mx-auto p-4 md:p-8">
+                    {user.role === 'designer' && (
+                        <div className="mb-6 flex justify-between items-center flex-shrink-0">
+                             <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg">
+                                <button onClick={() => setViewMode('active')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'active' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Active Posts</button>
+                                <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500" />
+                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Clients</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        {user.role === 'designer' && (
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-gray-500" />
-                            <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
-                                <option value="all">All Clients</option>
-                                {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        )}
-                    </div>
+                    )}
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
-                        <>
-                            {viewMode === 'active' && (
-                                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                                    {Object.entries(columns).map(([status, postsInColumn]) => (
-                                        <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
-                                            <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
-                                            <div className="overflow-y-auto p-4 pt-0">
-                                                <div className="space-y-4">
-                                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
-                                                </div>
+                        viewMode === 'active' ? (
+                            <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                                {Object.entries(columns).map(([status, postsInColumn]) => (
+                                    <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
+                                        <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full h-6 w-6 flex items-center justify-center">{postsInColumn.length}</span></h2>
+                                        <div className="flex-1 overflow-y-auto p-4 pt-0">
+                                            <div className="space-y-4">
+                                                {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                             {viewMode === 'calendar' && <CalendarView posts={filteredPosts} onSelectEvent={handleOpenReview} />}
-                             {viewMode === 'archived' && (
-                                <div className="overflow-y-auto flex-1">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {filteredPosts.length > 0 ? (filteredPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
                                     </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="overflow-y-auto flex-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {filteredPosts.length > 0 ? (filteredPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
                                 </div>
-                            )}
-                        </>
+                            </div>
+                        )
                     )}
                 </div>
             </main>
