@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -146,6 +146,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive }) => {
 
     const getStatusChip = (status) => {
         switch (status) {
+            case 'Post Idea': return <div className="flex items-center text-sm font-medium text-gray-800 bg-gray-200 px-3 py-1 rounded-full"><Lightbulb size={14} className="mr-1.5" />{status}</div>;
             case 'Pending Review': return <div className="flex items-center text-sm font-medium text-yellow-800 bg-yellow-100 px-3 py-1 rounded-full"><Clock size={14} className="mr-1.5" />{status}</div>;
             case 'Revisions Requested': return <div className="flex items-center text-sm font-medium text-orange-800 bg-orange-100 px-3 py-1 rounded-full"><Edit size={14} className="mr-1.5" />{status}</div>;
             case 'Approved': return <div className="flex items-center text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full"><CheckCircle size={14} className="mr-1.5" />{status}</div>;
@@ -172,7 +173,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive }) => {
                 )}
                 <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm">
                     {isVideo ? <Video size={12} className="mr-1.5" /> : <ImageIcon size={12} className="mr-1.5" />}
-                    {post.mediaUrls?.length}
+                    {post.mediaUrls?.length || 0}
                 </div>
             </div>
             <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div><div className="flex items-center gap-2">{canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} className="flex items-center text-sm bg-gray-700 hover:bg-black text-white font-bold py-2 px-3 rounded-lg transition-colors"><Edit size={16} className="mr-2" />Revise</button>)}{canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}{canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} className="flex items-center text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Archive size={16} className="mr-2" />Archive</button>)}</div></div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
@@ -312,12 +313,15 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
 
     useEffect(() => {
         if (post) {
+            if(post.status === 'Post Idea' && user.role === 'designer'){
+                setIsEditing(true);
+            }
             const scheduledAtDate = post.scheduledAt?.toDate ? post.scheduledAt.toDate() : post.scheduledAt ? new Date(post.scheduledAt) : null;
             const formattedScheduleDate = scheduledAtDate ? `${scheduledAtDate.getFullYear()}-${String(scheduledAtDate.getMonth() + 1).padStart(2, '0')}-${String(scheduledAtDate.getDate()).padStart(2, '0')}T${String(scheduledAtDate.getHours()).padStart(2, '0')}:${String(scheduledAtDate.getMinutes()).padStart(2, '0')}`: '';
             
             setEditData({ 
                 caption: post.caption, 
-                hashtags: post.hashtags, 
+                hashtags: post.hashtags || '', 
                 mediaUrls: post.mediaUrls || [], 
                 platforms: post.platforms || [],
                 scheduledAt: formattedScheduleDate
@@ -326,7 +330,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
             setNewMediaFiles([]);
             setCurrentMediaIndex(0);
         }
-    }, [post, isEditing]);
+    }, [post, user.role]);
 
     const handleFeedbackSubmit = () => { if (!comment.trim()) return; const feedbackData = { authorId: user.uid, authorName: user.name, text: comment, timestamp: new Date().toISOString(), authorRole: user.role }; onAddFeedback(post.id, feedbackData); setComment(''); };
     
@@ -380,7 +384,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                 mediaUrls: finalMediaUrls, 
                 platforms: editData.platforms, 
                 seenBy: [user.uid],
-                scheduledAt: new Date(editData.scheduledAt)
+                scheduledAt: new Date(editData.scheduledAt),
+                status: 'Pending Review' // Always move to pending review after an edit
             };
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -404,7 +409,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
     const currentMedia = mediaPreviews[currentMediaIndex];
 
     return (
-        <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ')} Post`}>
+        <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ') || 'Post Idea'}`}>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                     {isEditing ? (
@@ -421,7 +426,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                         </>
                     ) : (
                         <>
-                            <div className="relative">
+                           <div className="relative">
                                 {currentMedia?.type.startsWith('video') ? (
                                     <video src={currentMedia.url} controls className="rounded-lg w-full h-80 object-contain bg-black" />
                                 ) : (
@@ -435,13 +440,13 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost }) => {
                         </>
                     )}
                 </div>
-                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status === 'Revisions Requested' || post.status === 'Pending Review') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
+                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && post.status !== 'Post Idea' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
         </Modal>
     );
 };
 
-const CalendarView = ({ posts, onSelectEvent }) => {
+const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -493,17 +498,18 @@ const CalendarView = ({ posts, onSelectEvent }) => {
                     const dayPosts = postsByDay.get(dayKey) || [];
                     const isCurrentMonth = day.getMonth() === currentDate.getMonth();
                     return (
-                        <div key={index} className={`border rounded-lg p-2 h-32 flex flex-col ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}>
+                        <div key={index} className={`border rounded-lg p-2 h-32 flex flex-col ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'} ${userRole === 'designer' ? 'cursor-pointer hover:bg-gray-100' : ''}`} onClick={() => userRole === 'designer' && onSelectSlot(day)}>
                             <span className={`font-bold ${isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>{day.getDate()}</span>
                             <div className="flex-grow overflow-y-auto text-left text-xs space-y-1 mt-1">
                                 {dayPosts.map(post => {
                                     let bgColor = 'bg-gray-200 text-gray-800';
+                                    if(post.status === 'Post Idea') bgColor = 'bg-gray-200 text-gray-800';
                                     if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
                                     if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
                                     if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
 
                                     return (
-                                        <div key={post.id} onClick={() => onSelectEvent(post)} className={`p-1 rounded cursor-pointer hover:opacity-75 ${bgColor}`}>
+                                        <div key={post.id} onClick={(e) => { e.stopPropagation(); onSelectEvent(post); }} className={`p-1 rounded cursor-pointer hover:opacity-75 ${bgColor}`}>
                                             <p className="truncate font-semibold">{post.caption}</p>
                                         </div>
                                     );
@@ -517,12 +523,64 @@ const CalendarView = ({ posts, onSelectEvent }) => {
     );
 };
 
+const AddPostIdeaModal = ({ isOpen, onClose, onSave, clients, selectedDate }) => {
+    const [clientId, setClientId] = useState('');
+    const [idea, setIdea] = useState('');
+    const [time, setTime] = useState('10:00');
+
+    useEffect(() => {
+        if (clients.length > 0) {
+            setClientId(clients[0].id);
+        }
+    }, [clients]);
+
+    const handleSave = () => {
+        if (!clientId || !idea) {
+            alert("Please select a client and enter an idea.");
+            return;
+        }
+        const [hours, minutes] = time.split(':');
+        const scheduledAt = new Date(selectedDate);
+        scheduledAt.setHours(hours, minutes);
+        onSave({ clientId, idea, scheduledAt });
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Add New Post Idea">
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                    <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition">
+                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Post Idea / Title</label>
+                    <textarea value={idea} onChange={e => setIdea(e.target.value)} rows="3" placeholder="e.g., 'New Listing Showcase Reel'" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                    <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" />
+                </div>
+                <div className="flex justify-end gap-4 pt-4">
+                    <button type="button" onClick={onClose} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button>
+                    <button type="button" onClick={handleSave} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center">Add Idea</button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 
 const Portal = ({ user, setNotification }) => {
     const [posts, setPosts] = useState([]);
     const [clients, setClients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
+    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
     const [viewMode, setViewMode] = useState('bucket'); // 'bucket', 'pending', 'revision', 'approved', 'calendar', 'archived'
@@ -534,8 +592,40 @@ const Portal = ({ user, setNotification }) => {
 
     const handleOpenReview = (post) => {
         setReviewingPost(post);
-        markAsSeen(post.id);
+        if(post.id) {
+            markAsSeen(post.id);
+        }
     };
+
+    const handleSelectSlot = (date) => {
+        setSelectedDate(date);
+        setIsIdeaModalOpen(true);
+    };
+
+    const handleCreatePostIdea = async ({ clientId, idea, scheduledAt }) => {
+        const newPostIdea = {
+            caption: idea,
+            clientId,
+            designerId: user.uid,
+            status: 'Post Idea',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            scheduledAt,
+            seenBy: [user.uid],
+            feedback: [],
+            platforms: [],
+            hashtags: '',
+            mediaUrls: []
+        };
+        try {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostIdea);
+            setNotification({ message: 'Post idea added to calendar!', type: 'success' });
+        } catch (e) {
+            setNotification({ message: 'Failed to add post idea.', type: 'error' });
+        }
+        setIsIdeaModalOpen(false);
+    };
+
 
     useEffect(() => {
         setIsLoading(true);
@@ -566,7 +656,7 @@ const Portal = ({ user, setNotification }) => {
     useEffect(() => { if (reviewingPost) { const updatedPost = posts.find(p => p.id === reviewingPost.id); if (updatedPost) setReviewingPost(updatedPost); } }, [posts, reviewingPost]);
 
     const handleCreatePost = async (newPostData) => { try { await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); setIsNewPostModalOpen(false); setNotification({ message: 'Post created!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to create post.', type: 'error' }); } };
-    const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, status: 'Pending Review', updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
+    const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
     const handleApprovePost = async (postId) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); setNotification({ message: 'Post approved!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to approve post.', type: 'error' }); } };
     const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleRequestRevision = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); setNotification({ message: 'Revision requested.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to request revision.', type: 'error' }); }};
@@ -580,7 +670,7 @@ const Portal = ({ user, setNotification }) => {
         return posts;
     }, [posts, clientFilter, user.role]);
 
-    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived'), [clientFilteredPosts]);
+    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived' && p.status !== 'Post Idea'), [clientFilteredPosts]);
     const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
 
     const columns = useMemo(() => {
@@ -621,8 +711,8 @@ const Portal = ({ user, setNotification }) => {
                      <div className="mb-6 flex justify-between items-center flex-shrink-0">
                          <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg flex-wrap">
                             <button onClick={() => setViewMode('bucket')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Bucket View</button>
-                            <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending Review</button>
-                            <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision Requested</button>
+                            <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending</button>
+                            <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision</button>
                             <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
                             <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
@@ -663,7 +753,7 @@ const Portal = ({ user, setNotification }) => {
                                     </div>
                                 </div>
                             )}
-                            {viewMode === 'calendar' && <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} />}
+                            {viewMode === 'calendar' && <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />}
                             {viewMode === 'archived' && (
                                 <div className="overflow-y-auto flex-1">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -679,6 +769,7 @@ const Portal = ({ user, setNotification }) => {
                 <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} />
             </Modal>
             {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} />)}
+            <AddPostIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} onSave={handleCreatePostIdea} clients={clients} selectedDate={selectedDate} />
         </div>
     );
 };
