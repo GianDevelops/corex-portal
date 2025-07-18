@@ -11,6 +11,8 @@ let firebaseConfig;
 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
+    // FIX: Added missing commas between the key-value pairs to resolve the build error.
+    firebaseConfig = {
     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
