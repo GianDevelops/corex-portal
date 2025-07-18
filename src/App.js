@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Link as LinkIcon, Download } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -11,7 +11,6 @@ let firebaseConfig;
 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
-    firebaseConfig = {
     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
@@ -183,7 +182,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
 };
 
 const platformOptions = ['Instagram', 'Facebook', 'LinkedIn', 'TikTok'];
-const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
+const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData }) => {
     const [platforms, setPlatforms] = useState([]);
     const [caption, setCaption] = useState('');
     const [hashtags, setHashtags] = useState('');
@@ -193,7 +192,16 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
     const [scheduledAt, setScheduledAt] = useState('');
     const [isUploading, setIsUploading] = useState(false);
 
-    useEffect(() => { if (clients.length > 0) { setSelectedClientId(clients[0].id); } }, [clients]);
+    useEffect(() => {
+        if (initialData) {
+            setCaption(initialData.caption || '');
+            setMediaPreviews(initialData.mediaUrls?.map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video/mp4' : 'image/jpeg', isExisting: true })) || []);
+            setSelectedClientId(initialData.clientId || '');
+        } else if (clients.length > 0) {
+            setSelectedClientId(clients[0].id);
+        }
+    }, [initialData, clients]);
+
 
     const handlePlatformChange = (platform) => {
         setPlatforms(prev => prev.includes(platform) ? prev.filter(p => p !== platform) : [...prev, platform]);
@@ -230,12 +238,15 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!caption || mediaFiles.length === 0 || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields, select a schedule date, at least one platform, and upload at least one media file."); return; }
+        if (!caption || (mediaFiles.length === 0 && !initialData?.mediaUrls?.length) || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields, select a schedule date, at least one platform, and upload at least one media file."); return; }
         setIsUploading(true);
         try {
             const uploadedMediaUrls = await uploadMedia(mediaFiles);
-            const newPost = { platforms, caption, hashtags, mediaUrls: uploadedMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
-            onPostCreated(newPost);
+            const existingMediaUrls = mediaPreviews.filter(p => p.isExisting).map(p => p.url);
+            const finalMediaUrls = [...existingMediaUrls, ...uploadedMediaUrls];
+
+            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
+            onPostCreated(newPost, initialData?.id);
         } catch (error) {
             console.error("Media upload failed:", error);
             alert("Media upload failed. Please try again.");
@@ -408,6 +419,24 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
     if (!post) return null;
     
     const currentMedia = mediaPreviews[currentMediaIndex];
+    
+    const handleDownload = async (url) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            const fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0];
+            link.download = decodeURIComponent(fileName) || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error("Download failed:", error);
+        }
+    };
 
     return (
         <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ') || 'Post Idea'}`}>
@@ -434,6 +463,15 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                                     <img src={currentMedia?.url || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                                 )}
                                 {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}
+                                {user.role === 'designer' && currentMedia && (
+                                    <button 
+                                        onClick={() => handleDownload(currentMedia.url)} 
+                                        className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
+                                        title="Download Media"
+                                    >
+                                        <Download size={18} />
+                                    </button>
+                                )}
                             </div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Scheduled for</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{editData.scheduledAt ? new Date(editData.scheduledAt).toLocaleString() : 'Not scheduled'}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Caption</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
@@ -693,7 +731,18 @@ const Portal = ({ user, setNotification }) => {
     
     useEffect(() => { if (reviewingPost) { const updatedPost = posts.find(p => p.id === reviewingPost.id); if (updatedPost) setReviewingPost(updatedPost); } }, [posts, reviewingPost]);
 
-    const handleCreatePost = async (newPostData) => { try { await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); setIsNewPostModalOpen(false); setNotification({ message: 'Post created!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to create post.', type: 'error' }); } };
+    const handleCreatePost = async (newPostData, ideaIdToDelete) => { 
+        try { 
+            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); 
+            if (ideaIdToDelete) {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, ideaIdToDelete));
+            }
+            setIsNewPostModalOpen(false); 
+            setNotification({ message: 'Post created!', type: 'success' }); 
+        } catch (e) { 
+            setNotification({ message: 'Failed to create post.', type: 'error' }); 
+        } 
+    };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
     const handleApprovePost = async (postId) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); setNotification({ message: 'Post approved!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to approve post.', type: 'error' }); } };
     const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
