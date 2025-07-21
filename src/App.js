@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -111,6 +111,7 @@ const AuthScreen = ({ setNotification }) => {
 const getStatusChip = (status) => {
     switch (status) {
         case 'Post Idea': return <div className="flex items-center text-xs font-medium text-gray-800 bg-gray-200 px-2 py-1 rounded-full"><Lightbulb size={12} className="mr-1.5" />{status}</div>;
+        case 'Scheduled': return <div className="flex items-center text-xs font-medium text-blue-800 bg-blue-100 px-2 py-1 rounded-full"><CalendarIcon size={12} className="mr-1.5" />{status}</div>;
         case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
         case 'Revisions Requested': return <div className="flex items-center text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-full"><Edit size={12} className="mr-1.5" />{status}</div>;
         case 'Approved': return <div className="flex items-center text-xs font-medium text-green-800 bg-green-100 px-2 py-1 rounded-full"><CheckCircle size={12} className="mr-1.5" />{status}</div>;
@@ -221,7 +222,7 @@ const ListView = ({ posts, user, onReview, clients }) => {
 };
 
 const platformOptions = ['Instagram', 'Facebook', 'LinkedIn', 'TikTok'];
-const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData }) => {
+const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, selectedDate }) => {
     const [platforms, setPlatforms] = useState([]);
     const [caption, setCaption] = useState('');
     const [hashtags, setHashtags] = useState('');
@@ -239,7 +240,16 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData }) =>
         } else if (clients.length > 0) {
             setSelectedClientId(clients[0].id);
         }
-    }, [initialData, clients]);
+
+        if (selectedDate) {
+            const date = new Date(selectedDate);
+            // Set default time to 10:00 AM for the selected date
+            date.setHours(10, 0, 0, 0);
+            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            setScheduledAt(formattedDate);
+        }
+
+    }, [initialData, clients, selectedDate]);
 
 
     const handlePlatformChange = (platform) => {
@@ -284,7 +294,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData }) =>
             const existingMediaUrls = mediaPreviews.filter(p => p.isExisting).map(p => p.url);
             const finalMediaUrls = [...existingMediaUrls, ...uploadedMediaUrls];
 
-            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'Pending Review', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
+            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'Scheduled', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
             onPostCreated(newPost, initialData?.id);
         } catch (error) {
             console.error("Media upload failed:", error);
@@ -331,7 +341,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData }) =>
                     </div>
                 )}
             </div>
-            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><Plus size={18} className="mr-2" /> Create Post</>}</button></div>
+            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Scheduling...' : <><CalendarIcon size={18} className="mr-2" /> Schedule</>}</button></div>
         </form>
     );
 };
@@ -353,7 +363,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete }) => {
+const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '' });
@@ -436,8 +446,11 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 platforms: editData.platforms, 
                 seenBy: [user.uid],
                 scheduledAt: new Date(editData.scheduledAt),
-                status: 'Pending Review' // Always move to pending review after an edit
             };
+            // If editing a post idea, status becomes pending. Otherwise, it stays the same.
+            if(post.status === 'Post Idea') {
+                finalPostData.status = 'Pending Review';
+            }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
         } catch (error) {
@@ -520,11 +533,14 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 </div>
                 <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && post.status !== 'Post Idea' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
-             {user.role === 'designer' && (
-                <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+             <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
+                {user.role === 'designer' && post.status === 'Scheduled' && !isEditing && (
+                    <button onClick={() => { onSendToReview(post.id); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
+                )}
+                {user.role === 'designer' && (
                     <button onClick={() => onDelete(post)} className="flex items-center text-sm bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Trash2 size={16} className="mr-2" /> Delete Post</button>
-                </div>
-            )}
+                )}
+            </div>
         </Modal>
     );
 };
@@ -587,6 +603,7 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                                 {dayPosts.map(post => {
                                     let bgColor = 'bg-gray-200 text-gray-800';
                                     if(post.status === 'Post Idea') bgColor = 'bg-gray-200 text-gray-800';
+                                    if (post.status === 'Scheduled') bgColor = 'bg-blue-200 text-blue-800';
                                     if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
                                     if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
                                     if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
@@ -603,56 +620,6 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                 })}
             </div>
         </div>
-    );
-};
-
-const AddPostIdeaModal = ({ isOpen, onClose, onSave, clients, selectedDate }) => {
-    const [clientId, setClientId] = useState('');
-    const [idea, setIdea] = useState('');
-    const [time, setTime] = useState('10:00');
-
-    useEffect(() => {
-        if (clients.length > 0) {
-            setClientId(clients[0].id);
-        }
-    }, [clients]);
-
-    const handleSave = () => {
-        if (!clientId || !idea) {
-            alert("Please select a client and enter an idea.");
-            return;
-        }
-        const [hours, minutes] = time.split(':');
-        const scheduledAt = new Date(selectedDate);
-        scheduledAt.setHours(hours, minutes);
-        onSave({ clientId, idea, scheduledAt });
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Add New Post Idea">
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                    <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition">
-                        {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Post Idea / Title</label>
-                    <textarea value={idea} onChange={e => setIdea(e.target.value)} rows="3" placeholder="e.g., 'New Listing Showcase Reel'" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea>
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                    <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" />
-                </div>
-                <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button>
-                    <button type="button" onClick={handleSave} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center">Add Idea</button>
-                </div>
-            </div>
-        </Modal>
     );
 };
 
@@ -802,7 +769,6 @@ const Portal = ({ user, setNotification }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
     const [isClientIdeaModalOpen, setIsClientIdeaModalOpen] = useState(false);
-    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
@@ -824,31 +790,7 @@ const Portal = ({ user, setNotification }) => {
 
     const handleSelectSlot = (date) => {
         setSelectedDate(date);
-        setIsIdeaModalOpen(true);
-    };
-
-    const handleCreatePostIdea = async ({ clientId, idea, scheduledAt }) => {
-        const newPostIdea = {
-            caption: idea,
-            clientId,
-            designerId: user.uid,
-            status: 'Post Idea',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            scheduledAt,
-            seenBy: [user.uid],
-            feedback: [],
-            platforms: [],
-            hashtags: '',
-            mediaUrls: []
-        };
-        try {
-            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostIdea);
-            setNotification({ message: 'Post idea added to calendar!', type: 'success' });
-        } catch (e) {
-            setNotification({ message: 'Failed to add post idea.', type: 'error' });
-        }
-        setIsIdeaModalOpen(false);
+        setIsNewPostModalOpen(true);
     };
 
     const handleShareIdea = async ({ idea, mediaUrls }) => {
@@ -921,9 +863,9 @@ const Portal = ({ user, setNotification }) => {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, ideaIdToDelete));
             }
             setIsNewPostModalOpen(false); 
-            setNotification({ message: 'Post created!', type: 'success' }); 
+            setNotification({ message: 'Post scheduled!', type: 'success' }); 
         } catch (e) { 
-            setNotification({ message: 'Failed to create post.', type: 'error' }); 
+            setNotification({ message: 'Failed to schedule post.', type: 'error' }); 
         } 
     };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
@@ -931,6 +873,7 @@ const Portal = ({ user, setNotification }) => {
     const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleRequestRevision = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); setNotification({ message: 'Revision requested.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to request revision.', type: 'error' }); }};
     const handleArchivePost = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Archived', updatedAt: serverTimestamp() }); setNotification({ message: 'Post archived.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to archive post.', type: 'error' }); }};
+    const handleSendToReview = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Pending Review', updatedAt: serverTimestamp() }); setNotification({ message: 'Post sent for review!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to send for review.', type: 'error' }); }};
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const handleDeletePost = async () => {
@@ -969,6 +912,7 @@ const Portal = ({ user, setNotification }) => {
         const allActive = activePosts;
         return {
             'Post Ideas': allActive.filter(p => p.status === 'Post Idea'),
+            'Scheduled': allActive.filter(p => p.status === 'Scheduled'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
             'Approved': allActive.filter(p => p.status === 'Approved'),
@@ -1006,7 +950,7 @@ const Portal = ({ user, setNotification }) => {
         // Bucket View Logic
         if (viewMode === 'overview') {
             return (
-                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
@@ -1081,7 +1025,7 @@ const Portal = ({ user, setNotification }) => {
                 </div>
             </main>
             <Modal isOpen={isNewPostModalOpen} onClose={() => setIsNewPostModalOpen(false)} title="Create New Social Media Post">
-                <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} />
+                <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} selectedDate={selectedDate} />
             </Modal>
             <ClientIdeaModal 
                 isOpen={isClientIdeaModalOpen} 
@@ -1089,8 +1033,7 @@ const Portal = ({ user, setNotification }) => {
                 onShare={handleShareIdea}
                 setNotification={setNotification}
             />
-            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete}/>)}
-            <AddPostIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} onSave={handleCreatePostIdea} clients={clients} selectedDate={selectedDate} />
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} />)}
             <ConfirmationModal 
                 isOpen={!!postToDelete}
                 onClose={() => setPostToDelete(null)}
