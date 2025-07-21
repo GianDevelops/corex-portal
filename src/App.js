@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -108,28 +108,21 @@ const AuthScreen = ({ setNotification }) => {
 };
 
 // --- Portal Components ---
+const getStatusChip = (status) => {
+    switch (status) {
+        case 'Post Idea': return <div className="flex items-center text-xs font-medium text-gray-800 bg-gray-200 px-2 py-1 rounded-full"><Lightbulb size={12} className="mr-1.5" />{status}</div>;
+        case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
+        case 'Revisions Requested': return <div className="flex items-center text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-full"><Edit size={12} className="mr-1.5" />{status}</div>;
+        case 'Approved': return <div className="flex items-center text-xs font-medium text-green-800 bg-green-100 px-2 py-1 rounded-full"><CheckCircle size={12} className="mr-1.5" />{status}</div>;
+        case 'Archived': return <div className="flex items-center text-xs font-medium text-gray-700 bg-gray-200 px-2 py-1 rounded-full"><Archive size={12} className="mr-1.5" />{status}</div>;
+        default: return <div className="text-xs font-medium text-gray-700 bg-gray-200 px-2 py-1 rounded-full">{status}</div>;
+    }
+};
+
 const DelayedLoopVideo = ({ src, className }) => {
     const videoRef = useRef(null);
-
-    const handleVideoEnd = () => {
-        setTimeout(() => {
-            if (videoRef.current) {
-                videoRef.current.play();
-            }
-        }, 20000); // 20-second delay
-    };
-
-    return (
-        <video
-            ref={videoRef}
-            src={src}
-            className={className}
-            autoPlay
-            muted
-            playsInline
-            onEnded={handleVideoEnd}
-        />
-    );
+    const handleVideoEnd = () => { setTimeout(() => { if (videoRef.current) { videoRef.current.play(); } }, 20000); };
+    return (<video ref={videoRef} src={src} className={className} autoPlay muted playsInline onEnded={handleVideoEnd} />);
 };
 
 const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDelete }) => {
@@ -144,17 +137,6 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
         const seenBy = post.seenBy || [];
         return lastCommenterId !== user.uid && !seenBy.includes(user.uid);
     }, [post.feedback, post.seenBy, user.uid]);
-
-    const getStatusChip = (status) => {
-        switch (status) {
-            case 'Post Idea': return <div className="flex items-center text-sm font-medium text-gray-800 bg-gray-200 px-3 py-1 rounded-full"><Lightbulb size={14} className="mr-1.5" />{status}</div>;
-            case 'Pending Review': return <div className="flex items-center text-sm font-medium text-yellow-800 bg-yellow-100 px-3 py-1 rounded-full"><Clock size={14} className="mr-1.5" />{status}</div>;
-            case 'Revisions Requested': return <div className="flex items-center text-sm font-medium text-orange-800 bg-orange-100 px-3 py-1 rounded-full"><Edit size={14} className="mr-1.5" />{status}</div>;
-            case 'Approved': return <div className="flex items-center text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full"><CheckCircle size={14} className="mr-1.5" />{status}</div>;
-            case 'Archived': return <div className="flex items-center text-sm font-medium text-gray-700 bg-gray-200 px-3 py-1 rounded-full"><Archive size={14} className="mr-1.5" />{status}</div>;
-            default: return <div className="text-sm font-medium text-gray-700 bg-gray-200 px-3 py-1 rounded-full">{status}</div>;
-        }
-    };
 
     const revisionCountText = (count) => {
         if (!count || count === 0) return null;
@@ -178,6 +160,62 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
                 </div>
             </div>
             <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div><div className="flex items-center gap-2">{canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} className="flex items-center text-sm bg-gray-700 hover:bg-black text-white font-bold py-2 px-3 rounded-lg transition-colors"><Edit size={16} className="mr-2" />Revise</button>)}{canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}{canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} className="flex items-center text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Archive size={16} className="mr-2" />Archive</button>)}{canDelete && (<button onClick={(e) => {e.stopPropagation(); onDelete(post);}} className="text-red-500 hover:text-red-700 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>)}</div></div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
+        </div>
+    );
+};
+
+const PostListItem = ({ post, user, onReview, clients }) => {
+    const clientName = useMemo(() => {
+        if (user.role !== 'designer' || !clients) return '';
+        const client = clients.find(c => c.id === post.clientId);
+        return client ? client.name : 'Unknown Client';
+    }, [post.clientId, clients, user.role]);
+
+    return (
+        <tr onClick={() => onReview(post)} className="bg-white hover:bg-gray-50 border-b border-gray-200 cursor-pointer">
+            <td className="px-4 py-3 w-16">
+                {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                    <img src={post.mediaUrls[0]} alt="media" className="w-12 h-12 object-cover rounded-md" onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/100x100/f0f0f0/333333?text=N/A'; }} />
+                ) : (
+                    <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
+                        <ImageIcon size={20} className="text-gray-400" />
+                    </div>
+                )}
+            </td>
+            <td className="px-4 py-3">
+                <p className="font-medium text-gray-800 line-clamp-2">{post.caption}</p>
+                {user.role === 'designer' && <p className="text-xs text-gray-500">{clientName}</p>}
+            </td>
+            <td className="px-4 py-3">{getStatusChip(post.status)}</td>
+            <td className="px-4 py-3 text-sm text-gray-600">{post.scheduledAt?.toDate ? post.scheduledAt.toDate().toLocaleDateString() : 'Unscheduled'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 text-center">{post.feedback?.length || 0}</td>
+        </tr>
+    );
+};
+
+const ListView = ({ posts, user, onReview, clients }) => {
+    return (
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th className="px-4 py-2 font-semibold text-gray-600">Media</th>
+                        <th className="px-4 py-2 font-semibold text-gray-600">Caption</th>
+                        <th className="px-4 py-2 font-semibold text-gray-600">Status</th>
+                        <th className="px-4 py-2 font-semibold text-gray-600">Scheduled</th>
+                        <th className="px-4 py-2 font-semibold text-gray-600 text-center">Comments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {posts.length > 0 ? (
+                        posts.map(post => <PostListItem key={post.id} post={post} user={user} onReview={onReview} clients={clients} />)
+                    ) : (
+                        <tr>
+                            <td colSpan="5" className="text-center py-10 text-gray-400 text-sm">No posts in this view.</td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
         </div>
     );
 };
@@ -768,7 +806,8 @@ const Portal = ({ user, setNotification }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('bucket'); // 'bucket', 'pending', 'revision', 'approved', 'calendar', 'archived'
+    const [viewMode, setViewMode] = useState('overview'); // 'overview', 'pending', 'revision', 'approved', 'calendar', 'archived'
+    const [subViewMode, setSubViewMode] = useState('bucket'); // 'bucket', 'list'
     const [postToDelete, setPostToDelete] = useState(null);
 
     const markAsSeen = async (postId) => {
@@ -813,7 +852,6 @@ const Portal = ({ user, setNotification }) => {
     };
 
     const handleShareIdea = async ({ idea, mediaUrls }) => {
-        // Find a designer associated with this client from previous posts
         let designerId = null;
         const userPosts = posts
             .filter(p => p.clientId === user.uid && p.designerId)
@@ -827,7 +865,7 @@ const Portal = ({ user, setNotification }) => {
             caption: idea,
             mediaUrls,
             clientId: user.uid,
-            designerId: designerId, // Can be null if no prior designer
+            designerId: designerId,
             status: 'Post Idea',
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -899,23 +937,21 @@ const Portal = ({ user, setNotification }) => {
         if (!postToDelete) return;
 
         try {
-            // Delete media from storage
             if (postToDelete.mediaUrls && postToDelete.mediaUrls.length > 0) {
                 for (const url of postToDelete.mediaUrls) {
                     const fileRef = ref(storage, url);
                     await deleteObject(fileRef);
                 }
             }
-            // Delete post from Firestore
             await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postToDelete.id));
 
             setNotification({ message: 'Post permanently deleted.', type: 'success' });
-            setReviewingPost(null); // Close review modal if open
+            setReviewingPost(null);
         } catch (error) {
             console.error("Error deleting post:", error);
             setNotification({ message: 'Failed to delete post.', type: 'error' });
         } finally {
-            setPostToDelete(null); // Close confirmation modal
+            setPostToDelete(null);
         }
     };
 
@@ -928,27 +964,70 @@ const Portal = ({ user, setNotification }) => {
 
     const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived'), [clientFilteredPosts]);
     const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
-
+    
     const columns = useMemo(() => {
+        const allActive = activePosts;
         return {
-            'Post Ideas': activePosts.filter(p => p.status === 'Post Idea'),
-            'Pending Review': activePosts.filter(p => p.status === 'Pending Review'),
-            'Revisions Requested': activePosts.filter(p => p.status === 'Revisions Requested'),
-            'Approved': activePosts.filter(p => p.status === 'Approved'),
+            'Post Ideas': allActive.filter(p => p.status === 'Post Idea'),
+            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
+            'Approved': allActive.filter(p => p.status === 'Approved'),
         };
     }, [activePosts]);
 
-    const singleStatusPosts = useMemo(() => {
-        if (viewMode === 'pending') return activePosts.filter(p => p.status === 'Pending Review');
-        if (viewMode === 'revision') return activePosts.filter(p => p.status === 'Revisions Requested');
-        if (viewMode === 'approved') return activePosts.filter(p => p.status === 'Approved');
-        return [];
-    }, [activePosts, viewMode]);
-    
+    const viewPosts = useMemo(() => {
+        switch(viewMode) {
+            case 'overview': return activePosts;
+            case 'pending': return columns['Pending Review'];
+            case 'revision': return columns['Revisions Requested'];
+            case 'approved': return columns['Approved'];
+            case 'archived': return archivedPosts;
+            default: return [];
+        }
+    }, [viewMode, activePosts, archivedPosts, columns]);
+
     const statusTitles = {
+        overview: 'Overview',
         pending: 'Pending Review',
         revision: 'Revisions Requested',
         approved: 'Approved',
+        archived: 'Archived Posts'
+    };
+
+    const renderContent = () => {
+        if (viewMode === 'calendar') {
+            return <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
+        }
+
+        if (subViewMode === 'list') {
+            return <ListView posts={viewPosts} user={user} onReview={handleOpenReview} clients={clients} />;
+        }
+        
+        // Bucket View Logic
+        if (viewMode === 'overview') {
+            return (
+                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                    {Object.entries(columns).map(([status, postsInColumn]) => (
+                        <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
+                            <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
+                            <div className="overflow-y-auto p-4 pt-0">
+                                <div className="space-y-4">
+                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        return (
+            <div className="overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {viewPosts.length > 0 ? (viewPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -966,61 +1045,39 @@ const Portal = ({ user, setNotification }) => {
             </header>
             <main className="flex-1 flex flex-col min-h-0">
                 <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
-                     <div className="mb-6 flex justify-between items-center flex-shrink-0">
+                     <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
                          <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg flex-wrap">
-                            <button onClick={() => setViewMode('bucket')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Bucket View</button>
+                            <button onClick={() => setViewMode('overview')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'overview' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Overview</button>
                             <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending</button>
                             <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision</button>
                             <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
                             <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                         </div>
-                        {user.role === 'designer' && (
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-gray-500" />
-                            <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
-                                <option value="all">All Clients</option>
-                                {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        )}
-                    </div>
-                    {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
-                        <>
-                            {viewMode === 'bucket' && (
-                                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-                                    {Object.entries(columns).map(([status, postsInColumn]) => (
-                                        <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
-                                            <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
-                                            <div className="overflow-y-auto p-4 pt-0">
-                                                <div className="space-y-4">
-                                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
-                                                </div>
-                                            </div>
-                                        </div>
+                        <div className="flex items-center gap-4">
+                            {user.role === 'designer' && (
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500" />
+                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Clients</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name}</option>
                                     ))}
+                                </select>
+                            </div>
+                            )}
+                            {viewMode !== 'calendar' && (
+                                <div className="flex items-center gap-1 bg-gray-200 p-1 rounded-lg">
+                                    <button onClick={() => setSubViewMode('bucket')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><LayoutGrid size={18} /></button>
+                                    <button onClick={() => setSubViewMode('list')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'list' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><List size={18} /></button>
                                 </div>
                             )}
-                            {(viewMode === 'pending' || viewMode === 'revision' || viewMode === 'approved') && (
-                                <div className="overflow-y-auto flex-1">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{singleStatusPosts.length}</span></h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {singleStatusPosts.length > 0 ? (singleStatusPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
-                                    </div>
-                                </div>
-                            )}
-                            {viewMode === 'calendar' && <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />}
-                            {viewMode === 'archived' && (
-                                <div className="overflow-y-auto flex-1">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {archivedPosts.length > 0 ? (archivedPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No archived posts.</div>)}
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                        </div>
+                    </div>
+                    <div className="mb-4">
+                        <h2 className="text-2xl font-bold text-gray-800">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{viewPosts.length}</span></h2>
+                    </div>
+                    {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : renderContent()}
                 </div>
             </main>
             <Modal isOpen={isNewPostModalOpen} onClose={() => setIsNewPostModalOpen(false)} title="Create New Social Media Post">
