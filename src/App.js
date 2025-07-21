@@ -830,9 +830,17 @@ const Portal = ({ user, setNotification }) => {
     useEffect(() => {
         setIsLoading(true);
         const postsCollection = collection(db, `artifacts/${appId}/public/data/social_media_posts`);
-        const q = user.role === 'designer' ? postsCollection : query(postsCollection, where("clientId", "==", user.uid), where("status", "!=", "Scheduled"));
+        const q = user.role === 'designer' 
+            ? postsCollection 
+            : query(postsCollection, where("clientId", "==", user.uid));
+        
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            let postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            if (user.role === 'client') {
+                postsData = postsData.filter(post => post.status !== 'Scheduled');
+            }
+
             postsData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
             setPosts(postsData);
             setIsLoading(false);
