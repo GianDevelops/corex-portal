@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, Link as LinkIcon, ArrowRight } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -18,7 +18,6 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     storageBucket: "social-hub-d1682.firebasestorage.app",
     messagingSenderId: "629544933010",
     appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
-    };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
 /* eslint-enable no-undef */
