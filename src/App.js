@@ -837,10 +837,6 @@ const Portal = ({ user, setNotification }) => {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             let postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            if (user.role === 'client') {
-                postsData = postsData.filter(post => post.status !== 'Scheduled');
-            }
-
             postsData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
             setPosts(postsData);
             setIsLoading(false);
@@ -924,26 +920,42 @@ const Portal = ({ user, setNotification }) => {
         return posts;
     }, [posts, clientFilter, user.role]);
 
-    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived'), [clientFilteredPosts]);
+    const activePosts = useMemo(() => {
+        let postsToFilter = clientFilteredPosts;
+        if (user.role === 'client') {
+            postsToFilter = postsToFilter.filter(p => p.status !== 'Scheduled');
+        }
+        return postsToFilter.filter(p => p.status !== 'Archived');
+    }, [clientFilteredPosts, user.role]);
+
     const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
     
     const columns = useMemo(() => {
         const allActive = activePosts;
-        return {
+        
+        const designerColumns = {
             'Post Ideas': allActive.filter(p => p.status === 'Post Idea'),
             'Scheduled': allActive.filter(p => p.status === 'Scheduled'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
             'Approved': allActive.filter(p => p.status === 'Approved'),
         };
-    }, [activePosts]);
+
+        const clientColumns = {
+            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
+            'Approved': allActive.filter(p => p.status === 'Approved'),
+        };
+
+        return user.role === 'designer' ? designerColumns : clientColumns;
+    }, [activePosts, user.role]);
 
     const viewPosts = useMemo(() => {
         switch(viewMode) {
             case 'overview': return activePosts;
-            case 'pending': return columns['Pending Review'];
-            case 'revision': return columns['Revisions Requested'];
-            case 'approved': return columns['Approved'];
+            case 'pending': return columns['Pending Review'] || [];
+            case 'revision': return columns['Revisions Requested'] || [];
+            case 'approved': return columns['Approved'] || [];
             case 'archived': return archivedPosts;
             default: return [];
         }
@@ -969,7 +981,7 @@ const Portal = ({ user, setNotification }) => {
         // Bucket View Logic
         if (viewMode === 'overview') {
             return (
-                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
+                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}>
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
