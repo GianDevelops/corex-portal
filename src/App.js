@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -127,11 +127,12 @@ const DelayedLoopVideo = ({ src, className }) => {
     return (<video ref={videoRef} src={src} className={className} autoPlay muted playsInline onEnded={handleVideoEnd} />);
 };
 
-const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDelete }) => {
+const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDelete, onConvertToPost }) => {
     const canApprove = user.role === 'client' && (post.status === 'Pending Review' || post.status === 'Revisions Requested');
     const canRevise = user.role === 'client' && post.status === 'Pending Review' && (post.revisionCount || 0) < 2;
     const canArchive = user.role === 'designer' && post.status === 'Approved';
     const canDelete = user.role === 'designer' && post.status === 'Archived';
+    const canConvertToPost = user.role === 'designer' && post.status === 'Post Idea';
     
     const hasUnreadComments = useMemo(() => {
         if (!post.feedback || post.feedback.length === 0) return false;
@@ -161,7 +162,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
                     {post.mediaUrls?.length || 0}
                 </div>
             </div>
-            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div><div className="flex items-center gap-2">{canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} className="flex items-center text-sm bg-gray-700 hover:bg-black text-white font-bold py-2 px-3 rounded-lg transition-colors"><Edit size={16} className="mr-2" />Revise</button>)}{canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}{canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} className="flex items-center text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Archive size={16} className="mr-2" />Archive</button>)}{canDelete && (<button onClick={(e) => {e.stopPropagation(); onDelete(post);}} className="text-red-500 hover:text-red-700 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>)}</div></div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
+            <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p><div className="border-t border-gray-200 pt-3 mt-auto"><div className="flex justify-between items-center"><div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors"><MessageSquare size={16} className="mr-2" /><span>{post.feedback?.length || 0} Comments</span>{hasUnreadComments && <div className="ml-2 w-2 h-2 bg-red-500 rounded-full"></div>}</div><div className="flex items-center gap-2">{canConvertToPost && (<button onClick={(e) => { e.stopPropagation(); onConvertToPost(post); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Repeat size={16} className="mr-2" />Convert</button>)}{canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} className="flex items-center text-sm bg-gray-700 hover:bg-black text-white font-bold py-2 px-3 rounded-lg transition-colors"><Edit size={16} className="mr-2" />Revise</button>)}{canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} className="flex items-center text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-colors"><ThumbsUp size={16} className="mr-2" />Approve</button>)}{canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} className="flex items-center text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"><Archive size={16} className="mr-2" />Archive</button>)}{canDelete && (<button onClick={(e) => {e.stopPropagation(); onDelete(post);}} className="text-red-500 hover:text-red-700 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>)}</div></div>{post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}</div></div>
         </div>
     );
 };
@@ -235,7 +236,9 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
 
     useEffect(() => {
         if (initialData) {
+            setPlatforms(initialData.platforms || []);
             setCaption(initialData.caption || '');
+            setHashtags(initialData.hashtags || '');
             setMediaPreviews(initialData.mediaUrls?.map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video/mp4' : 'image/jpeg', isExisting: true })) || []);
             setSelectedClientId(initialData.clientId || '');
         } else if (clients.length > 0) {
@@ -550,7 +553,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                         </>
                     )}
                 </div>
-                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && post.status !== 'Post Idea' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
+                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
             {user.role === 'client' && post.status === 'Awaiting Media Upload' && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
@@ -841,9 +844,10 @@ const Portal = ({ user, setNotification }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('overview'); // 'overview', 'pending', 'revision', 'approved', 'calendar', 'archived', 'library'
+    const [viewMode, setViewMode] = useState('overview'); // 'overview', 'ideas', 'pending', 'revision', 'approved', 'calendar', 'library', 'archived'
     const [subViewMode, setSubViewMode] = useState('bucket'); // 'bucket', 'list'
     const [postToDelete, setPostToDelete] = useState(null);
+    const [ideaToConvert, setIdeaToConvert] = useState(null);
 
     const markAsSeen = async (postId) => {
         const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
@@ -859,6 +863,11 @@ const Portal = ({ user, setNotification }) => {
 
     const handleSelectSlot = (date) => {
         setSelectedDate(date);
+        setIsNewPostModalOpen(true);
+    };
+
+    const handleConvertToPost = (post) => {
+        setIdeaToConvert(post);
         setIsNewPostModalOpen(true);
     };
 
@@ -936,6 +945,7 @@ const Portal = ({ user, setNotification }) => {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, ideaIdToDelete));
             }
             setIsNewPostModalOpen(false); 
+            setIdeaToConvert(null);
             setNotification({ message: 'Post scheduled!', type: 'success' }); 
         } catch (e) { 
             setNotification({ message: 'Failed to schedule post.', type: 'error' }); 
@@ -1015,18 +1025,18 @@ const Portal = ({ user, setNotification }) => {
     const activePosts = useMemo(() => {
         let postsToFilter = clientFilteredPosts;
         if (user.role === 'client') {
-            postsToFilter = postsToFilter.filter(p => p.status !== 'Scheduled');
+            postsToFilter = postsToFilter.filter(p => p.status !== 'Scheduled' && p.status !== 'Post Idea');
         }
         return postsToFilter.filter(p => p.status !== 'Archived');
     }, [clientFilteredPosts, user.role]);
 
     const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
+    const postIdeas = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Post Idea'), [clientFilteredPosts]);
     
     const columns = useMemo(() => {
         const allActive = activePosts;
         
         const designerColumns = {
-            'Post Ideas': allActive.filter(p => p.status === 'Post Idea'),
             'Scheduled': allActive.filter(p => p.status === 'Scheduled'),
             'Awaiting Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
@@ -1035,10 +1045,10 @@ const Portal = ({ user, setNotification }) => {
         };
 
         const clientColumns = {
-            'Awaiting Your Media': activePosts.filter(p => p.status === 'Awaiting Media Upload'),
-            'Pending Review': activePosts.filter(p => p.status === 'Pending Review'),
-            'Revisions Requested': activePosts.filter(p => p.status === 'Revisions Requested'),
-            'Approved': activePosts.filter(p => p.status === 'Approved'),
+            'Awaiting Your Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
+            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
+            'Approved': allActive.filter(p => p.status === 'Approved'),
         };
 
         return user.role === 'designer' ? designerColumns : clientColumns;
@@ -1047,16 +1057,18 @@ const Portal = ({ user, setNotification }) => {
     const viewPosts = useMemo(() => {
         switch(viewMode) {
             case 'overview': return activePosts;
+            case 'ideas': return postIdeas;
             case 'pending': return columns['Pending Review'] || [];
             case 'revision': return columns['Revisions Requested'] || [];
             case 'approved': return columns['Approved'] || [];
             case 'archived': return archivedPosts;
             default: return [];
         }
-    }, [viewMode, activePosts, archivedPosts, columns]);
+    }, [viewMode, activePosts, postIdeas, archivedPosts, columns]);
 
     const statusTitles = {
         overview: 'Overview',
+        ideas: 'Post Ideas',
         pending: 'Pending Review',
         revision: 'Revisions Requested',
         approved: 'Approved',
@@ -1079,13 +1091,13 @@ const Portal = ({ user, setNotification }) => {
         // Bucket View Logic
         if (viewMode === 'overview') {
             return (
-                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
+                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
                             <div className="overflow-y-auto p-4 pt-0">
                                 <div className="space-y-4">
-                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                                 </div>
                             </div>
                         </div>
@@ -1097,7 +1109,7 @@ const Portal = ({ user, setNotification }) => {
         return (
             <div className="overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {viewPosts.length > 0 ? (viewPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                    {viewPosts.length > 0 ? (viewPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
                 </div>
             </div>
         );
@@ -1110,7 +1122,7 @@ const Portal = ({ user, setNotification }) => {
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
                     <div className="flex items-center gap-6">
                         <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
-                        {user.role === 'designer' && (<button onClick={() => { setSelectedDate(null); setIsNewPostModalOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
+                        {user.role === 'designer' && (<button onClick={() => { setSelectedDate(null); setIdeaToConvert(null); setIsNewPostModalOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
                         {user.role === 'client' && (<button onClick={() => setIsClientIdeaModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Lightbulb size={20} className="mr-2" /> Share Idea</button>)}
                         <button onClick={handleSignOut} className="p-2 text-gray-500 hover:text-gray-800 transition-colors"><LogOut size={20} /></button>
                     </div>
@@ -1121,6 +1133,7 @@ const Portal = ({ user, setNotification }) => {
                      <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
                          <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg flex-wrap">
                             <button onClick={() => setViewMode('overview')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'overview' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Overview</button>
+                            <button onClick={() => setViewMode('ideas')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'ideas' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Lightbulb size={16} className="inline mr-1.5" />Post Ideas</button>
                             <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending</button>
                             <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision</button>
                             <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
@@ -1154,8 +1167,8 @@ const Portal = ({ user, setNotification }) => {
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : renderContent()}
                 </div>
             </main>
-            <Modal isOpen={isNewPostModalOpen} onClose={() => setIsNewPostModalOpen(false)} title="Create New Social Media Post">
-                <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} selectedDate={selectedDate} />
+            <Modal isOpen={isNewPostModalOpen} onClose={() => { setIsNewPostModalOpen(false); setIdeaToConvert(null); }}>
+                <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => { setIsNewPostModalOpen(false); setIdeaToConvert(null); }} selectedDate={selectedDate} initialData={ideaToConvert} />
             </Modal>
             <ClientIdeaModal 
                 isOpen={isClientIdeaModalOpen} 
