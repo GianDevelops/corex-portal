@@ -618,6 +618,114 @@ const AddPostIdeaModal = ({ isOpen, onClose, onSave, clients, selectedDate }) =>
     );
 };
 
+const ClientIdeaModal = ({ isOpen, onClose, onShare, setNotification }) => {
+    const [idea, setIdea] = useState('');
+    const [mediaFiles, setMediaFiles] = useState([]);
+    const [mediaPreviews, setMediaPreviews] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileChange = (e) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            if ((mediaFiles.length + files.length) > 5) {
+                setNotification({ message: "You can only upload a maximum of 5 files.", type: 'error' });
+                return;
+            }
+            setMediaFiles(prev => [...prev, ...files]);
+            const newPreviews = files.map(file => ({
+                url: URL.createObjectURL(file),
+                type: file.type
+            }));
+            setMediaPreviews(prev => [...prev, ...newPreviews]);
+        }
+    };
+
+    const removeMedia = (index) => {
+        setMediaFiles(prev => prev.filter((_, i) => i !== index));
+        setMediaPreviews(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const resetForm = () => {
+        setIdea('');
+        setMediaFiles([]);
+        setMediaPreviews([]);
+        setIsUploading(false);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!idea.trim()) {
+            setNotification({ message: "Please describe your idea.", type: 'error' });
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const mediaUrls = [];
+            for (const file of mediaFiles) {
+                const storageRef = ref(storage, `ideas/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(storageRef);
+                mediaUrls.push(downloadURL);
+            }
+            await onShare({ idea, mediaUrls });
+            resetForm();
+            onClose();
+        } catch (error) {
+            console.error("Idea submission failed:", error);
+            setNotification({ message: "Idea submission failed. Please try again.", type: 'error' });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Share a New Idea">
+            <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Your Idea</label>
+                    <textarea value={idea} onChange={e => setIdea(e.target.value)} rows="4" placeholder="Describe your idea for a post. e.g., 'A video walkthrough of the new property on 123 Main St.'" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Reference Images or Videos (up to 5)</label>
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            <UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                                <label htmlFor="idea-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500">
+                                    <span>Upload files</span>
+                                    <input id="idea-file-upload" name="idea-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime" onChange={handleFileChange} />
+                                </label>
+                                <p className="pl-1">or drag and drop</p>
+                            </div>
+                            <p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV up to 50MB</p>
+                        </div>
+                    </div>
+                    {mediaPreviews.length > 0 && (
+                        <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">
+                            {mediaPreviews.map((preview, index) => (
+                                <div key={index} className="relative group">
+                                    {preview.type.startsWith('video') ? (
+                                        <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" />
+                                    ) : (
+                                        <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />
+                                    )}
+                                    <button type="button" onClick={() => removeMedia(index)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="flex justify-end gap-4 pt-4">
+                    <button type="button" onClick={() => { resetForm(); onClose(); }} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button>
+                    <button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">
+                        {isUploading ? 'Sharing...' : <><Send size={18} className="mr-2" /> Share Idea</>}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
     if (!isOpen) return null;
     return (
@@ -655,6 +763,7 @@ const Portal = ({ user, setNotification }) => {
     const [clients, setClients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
+    const [isClientIdeaModalOpen, setIsClientIdeaModalOpen] = useState(false);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
@@ -701,6 +810,41 @@ const Portal = ({ user, setNotification }) => {
             setNotification({ message: 'Failed to add post idea.', type: 'error' });
         }
         setIsIdeaModalOpen(false);
+    };
+
+    const handleShareIdea = async ({ idea, mediaUrls }) => {
+        // Find a designer associated with this client from previous posts
+        let designerId = null;
+        const userPosts = posts
+            .filter(p => p.clientId === user.uid && p.designerId)
+            .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+        
+        if (userPosts.length > 0) {
+            designerId = userPosts[0].designerId;
+        }
+
+        const newIdeaPost = {
+            caption: idea,
+            mediaUrls,
+            clientId: user.uid,
+            designerId: designerId, // Can be null if no prior designer
+            status: 'Post Idea',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            seenBy: [user.uid],
+            feedback: [],
+            platforms: [],
+            hashtags: '',
+            revisionCount: 0,
+            scheduledAt: null,
+        };
+        try {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newIdeaPost);
+            setNotification({ message: 'Idea shared! Your designer will be notified.', type: 'success' });
+        } catch (e) {
+            setNotification({ message: 'Failed to share idea.', type: 'error' });
+            console.error("Error sharing idea: ", e);
+        }
     };
 
 
@@ -782,11 +926,12 @@ const Portal = ({ user, setNotification }) => {
         return posts;
     }, [posts, clientFilter, user.role]);
 
-    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived' && p.status !== 'Post Idea'), [clientFilteredPosts]);
+    const activePosts = useMemo(() => clientFilteredPosts.filter(p => p.status !== 'Archived'), [clientFilteredPosts]);
     const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
 
     const columns = useMemo(() => {
         return {
+            'Post Ideas': activePosts.filter(p => p.status === 'Post Idea'),
             'Pending Review': activePosts.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': activePosts.filter(p => p.status === 'Revisions Requested'),
             'Approved': activePosts.filter(p => p.status === 'Approved'),
@@ -814,6 +959,7 @@ const Portal = ({ user, setNotification }) => {
                     <div className="flex items-center gap-6">
                         <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
                         {user.role === 'designer' && (<button onClick={() => setIsNewPostModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
+                        {user.role === 'client' && (<button onClick={() => setIsClientIdeaModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Lightbulb size={20} className="mr-2" /> Share Idea</button>)}
                         <button onClick={handleSignOut} className="p-2 text-gray-500 hover:text-gray-800 transition-colors"><LogOut size={20} /></button>
                     </div>
                 </div>
@@ -844,7 +990,7 @@ const Portal = ({ user, setNotification }) => {
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : (
                         <>
                             {viewMode === 'bucket' && (
-                                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
                                     {Object.entries(columns).map(([status, postsInColumn]) => (
                                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
@@ -880,6 +1026,12 @@ const Portal = ({ user, setNotification }) => {
             <Modal isOpen={isNewPostModalOpen} onClose={() => setIsNewPostModalOpen(false)} title="Create New Social Media Post">
                 <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => setIsNewPostModalOpen(false)} />
             </Modal>
+            <ClientIdeaModal 
+                isOpen={isClientIdeaModalOpen} 
+                onClose={() => setIsClientIdeaModalOpen(false)} 
+                onShare={handleShareIdea}
+                setNotification={setNotification}
+            />
             {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete}/>)}
             <AddPostIdeaModal isOpen={isIdeaModalOpen} onClose={() => setIsIdeaModalOpen(false)} onSave={handleCreatePostIdea} clients={clients} selectedDate={selectedDate} />
             <ConfirmationModal 
