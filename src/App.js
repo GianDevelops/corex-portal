@@ -151,7 +151,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
         <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
             <div className="relative">
                 {isVideo ? (
-                    <DelayedLoopVideo src={post.mediaUrls[0]} className="w-full h-32 object-cover bg-black" />
+                    <DelayedLoopVideo src={post.mediaUrls?.[0]} className="w-full h-32 object-cover bg-black" />
                 ) : (
                     <img src={post.mediaUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                 )}
@@ -243,7 +243,6 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
 
         if (selectedDate) {
             const date = new Date(selectedDate);
-            // Set default time to 10:00 AM for the selected date
             date.setHours(10, 0, 0, 0);
             const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
             setScheduledAt(formattedDate);
@@ -287,7 +286,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!caption || (mediaFiles.length === 0 && !initialData?.mediaUrls?.length) || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields, select a schedule date, at least one platform, and upload at least one media file."); return; }
+        if (!caption || !selectedClientId || platforms.length === 0 || !scheduledAt) { alert("Please fill all fields: Client, Schedule Date, and Platforms."); return; }
         setIsUploading(true);
         try {
             const uploadedMediaUrls = await uploadMedia(mediaFiles);
@@ -312,7 +311,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={caption} onChange={e => setCaption(e.target.value)} rows="4" placeholder="Write a compelling caption..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#realestate #newlisting #dreamhome" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Images & Videos (up to 5)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Images & Videos (up to 5, optional for scheduling)</label>
                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                     <div className="text-center">
                         <UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
@@ -447,9 +446,9 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 seenBy: [user.uid],
                 scheduledAt: new Date(editData.scheduledAt),
             };
-            // If editing a post idea, status becomes pending. Otherwise, it stays the same.
+            
             if(post.status === 'Post Idea') {
-                finalPostData.status = 'Pending Review';
+                finalPostData.status = 'Scheduled';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -535,7 +534,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             </div>
              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
                 {user.role === 'designer' && post.status === 'Scheduled' && !isEditing && (
-                    <button onClick={() => { onSendToReview(post.id); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
+                    <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
                 )}
                 {user.role === 'designer' && (
                     <button onClick={() => onDelete(post)} className="flex items-center text-sm bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Trash2 size={16} className="mr-2" /> Delete Post</button>
@@ -831,7 +830,7 @@ const Portal = ({ user, setNotification }) => {
     useEffect(() => {
         setIsLoading(true);
         const postsCollection = collection(db, `artifacts/${appId}/public/data/social_media_posts`);
-        const q = user.role === 'designer' ? postsCollection : query(postsCollection, where("clientId", "==", user.uid));
+        const q = user.role === 'designer' ? postsCollection : query(postsCollection, where("clientId", "==", user.uid), where("status", "!=", "Scheduled"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             postsData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
@@ -873,7 +872,19 @@ const Portal = ({ user, setNotification }) => {
     const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
     const handleRequestRevision = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); setNotification({ message: 'Revision requested.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to request revision.', type: 'error' }); }};
     const handleArchivePost = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Archived', updatedAt: serverTimestamp() }); setNotification({ message: 'Post archived.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to archive post.', type: 'error' }); }};
-    const handleSendToReview = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Pending Review', updatedAt: serverTimestamp() }); setNotification({ message: 'Post sent for review!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to send for review.', type: 'error' }); }};
+    const handleSendToReview = async (post) => { 
+        if (!post.mediaUrls || post.mediaUrls.length === 0) {
+            setNotification({ message: 'Please add media to the post before sending for review.', type: 'error' });
+            return;
+        }
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, post.id); 
+            await updateDoc(postRef, { status: 'Pending Review', updatedAt: serverTimestamp() }); 
+            setNotification({ message: 'Post sent for review!', type: 'success' }); 
+        } catch (e) { 
+            setNotification({ message: 'Failed to send for review.', type: 'error' }); 
+        }
+    };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const handleDeletePost = async () => {
@@ -981,7 +992,7 @@ const Portal = ({ user, setNotification }) => {
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
                     <div className="flex items-center gap-6">
                         <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
-                        {user.role === 'designer' && (<button onClick={() => setIsNewPostModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
+                        {user.role === 'designer' && (<button onClick={() => { setSelectedDate(null); setIsNewPostModalOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
                         {user.role === 'client' && (<button onClick={() => setIsClientIdeaModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Lightbulb size={20} className="mr-2" /> Share Idea</button>)}
                         <button onClick={handleSignOut} className="p-2 text-gray-500 hover:text-gray-800 transition-colors"><LogOut size={20} /></button>
                     </div>
