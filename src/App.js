@@ -12,7 +12,7 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     firebaseConfig = JSON.parse(__firebase_config);
 } else {
     firebaseConfig = {
-     apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
+    apiKey: "AIzaSyDakANta9S4ABmkry8hIzgaRusvWgShz9E",
     authDomain: "social-hub-d1682.firebaseapp.com",
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
