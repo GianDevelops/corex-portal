@@ -111,9 +111,9 @@ const AuthScreen = ({ setNotification }) => {
 const getStatusChip = (status) => {
     switch (status) {
         case 'Post Idea': return <div className="flex items-center text-xs font-medium text-gray-800 bg-gray-200 px-2 py-1 rounded-full"><Lightbulb size={12} className="mr-1.5" />{status}</div>;
-        case 'Scheduled': return <div className="flex items-center text-xs font-medium text-blue-800 bg-blue-100 px-2 py-1 rounded-full"><CalendarIcon size={12} className="mr-1.5" />{status}</div>;
+        case 'In Progress': return <div className="flex items-center text-xs font-medium text-blue-800 bg-blue-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
         case 'Awaiting Media Upload': return <div className="flex items-center text-xs font-medium text-purple-800 bg-purple-100 px-2 py-1 rounded-full"><Paperclip size={12} className="mr-1.5" />Awaiting Media</div>;
-        case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
+        case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><SendHorizonal size={12} className="mr-1.5" />{status}</div>;
         case 'Revisions Requested': return <div className="flex items-center text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-full"><Edit size={12} className="mr-1.5" />{status}</div>;
         case 'Approved': return <div className="flex items-center text-xs font-medium text-green-800 bg-green-100 px-2 py-1 rounded-full"><CheckCircle size={12} className="mr-1.5" />{status}</div>;
         case 'Archived': return <div className="flex items-center text-xs font-medium text-gray-700 bg-gray-200 px-2 py-1 rounded-full"><Archive size={12} className="mr-1.5" />{status}</div>;
@@ -297,7 +297,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
             const existingMediaUrls = mediaPreviews.filter(p => p.isExisting).map(p => p.url);
             const finalMediaUrls = [...existingMediaUrls, ...uploadedMediaUrls];
 
-            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'Scheduled', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
+            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'In Progress', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
             onPostCreated(newPost, initialData?.id);
         } catch (error) {
             console.error("Media upload failed:", error);
@@ -344,7 +344,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
                     </div>
                 )}
             </div>
-            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Scheduling...' : <><CalendarIcon size={18} className="mr-2" /> Schedule</>}</button></div>
+            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Saving...' : <><Save size={18} className="mr-2" /> Save In Progress</>}</button></div>
         </form>
     );
 };
@@ -452,7 +452,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             };
             
             if(post.status === 'Post Idea') {
-                finalPostData.status = 'Scheduled';
+                finalPostData.status = 'In Progress';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -568,7 +568,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 </div>
             )}
              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
-                {user.role === 'designer' && post.status === 'Scheduled' && !isEditing && (
+                {user.role === 'designer' && post.status === 'In Progress' && !isEditing && (
                     <>
                         <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Media</button>
                         <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
@@ -640,7 +640,7 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                                 {dayPosts.map(post => {
                                     let bgColor = 'bg-gray-200 text-gray-800';
                                     if(post.status === 'Post Idea') bgColor = 'bg-gray-200 text-gray-800';
-                                    if (post.status === 'Scheduled') bgColor = 'bg-blue-200 text-blue-800';
+                                    if (post.status === 'In Progress') bgColor = 'bg-blue-200 text-blue-800';
                                     if (post.status === 'Awaiting Media Upload') bgColor = 'bg-purple-200 text-purple-800';
                                     if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
                                     if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
@@ -946,9 +946,9 @@ const Portal = ({ user, setNotification }) => {
             }
             setIsNewPostModalOpen(false); 
             setIdeaToConvert(null);
-            setNotification({ message: 'Post scheduled!', type: 'success' }); 
+            setNotification({ message: 'Post saved as In Progress!', type: 'success' }); 
         } catch (e) { 
-            setNotification({ message: 'Failed to schedule post.', type: 'error' }); 
+            setNotification({ message: 'Failed to save post.', type: 'error' }); 
         } 
     };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
@@ -983,7 +983,7 @@ const Portal = ({ user, setNotification }) => {
             const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
             await updateDoc(postRef, {
                 mediaUrls: newMediaUrls,
-                status: 'Scheduled',
+                status: 'In Progress',
                 updatedAt: serverTimestamp()
             });
             setNotification({ message: 'Media uploaded successfully!', type: 'success' });
@@ -1025,7 +1025,7 @@ const Portal = ({ user, setNotification }) => {
     const activePosts = useMemo(() => {
         let postsToFilter = clientFilteredPosts;
         if (user.role === 'client') {
-            postsToFilter = postsToFilter.filter(p => p.status !== 'Scheduled' && p.status !== 'Post Idea');
+            postsToFilter = postsToFilter.filter(p => p.status !== 'Post Idea');
         }
         return postsToFilter.filter(p => p.status !== 'Archived');
     }, [clientFilteredPosts, user.role]);
@@ -1037,7 +1037,7 @@ const Portal = ({ user, setNotification }) => {
         const allActive = activePosts;
         
         const designerColumns = {
-            'Scheduled': allActive.filter(p => p.status === 'Scheduled'),
+            'In Progress': allActive.filter(p => p.status === 'In Progress'),
             'Awaiting Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
@@ -1045,6 +1045,7 @@ const Portal = ({ user, setNotification }) => {
         };
 
         const clientColumns = {
+            'In Progress': allActive.filter(p => p.status === 'In Progress'),
             'Awaiting Your Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
@@ -1091,7 +1092,7 @@ const Portal = ({ user, setNotification }) => {
         // Bucket View Logic
         if (viewMode === 'overview') {
             return (
-                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
+                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-5'}`}>
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
