@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -112,6 +112,7 @@ const getStatusChip = (status) => {
     switch (status) {
         case 'Post Idea': return <div className="flex items-center text-xs font-medium text-gray-800 bg-gray-200 px-2 py-1 rounded-full"><Lightbulb size={12} className="mr-1.5" />{status}</div>;
         case 'Scheduled': return <div className="flex items-center text-xs font-medium text-blue-800 bg-blue-100 px-2 py-1 rounded-full"><CalendarIcon size={12} className="mr-1.5" />{status}</div>;
+        case 'Awaiting Media Upload': return <div className="flex items-center text-xs font-medium text-purple-800 bg-purple-100 px-2 py-1 rounded-full"><Paperclip size={12} className="mr-1.5" />Awaiting Media</div>;
         case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
         case 'Revisions Requested': return <div className="flex items-center text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-full"><Edit size={12} className="mr-1.5" />{status}</div>;
         case 'Approved': return <div className="flex items-center text-xs font-medium text-green-800 bg-green-100 px-2 py-1 rounded-full"><CheckCircle size={12} className="mr-1.5" />{status}</div>;
@@ -362,7 +363,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview }) => {
+const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '' });
@@ -459,6 +460,25 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             setIsUploading(false);
         }
     };
+
+    const handleClientUploadSubmit = async () => {
+        if (newMediaFiles.length === 0) {
+            alert("Please select files to upload.");
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const newUploadedUrls = await uploadMedia(newMediaFiles);
+            const finalMediaUrls = [...(post.mediaUrls || []), ...newUploadedUrls];
+            await onClientMediaUploaded(post.id, finalMediaUrls);
+            onClose();
+        } catch (error) {
+            console.error("Client media upload failed:", error);
+            alert("Upload failed. Please try again.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
     
     const handlePlatformChange = (platform) => {
         setEditData(prev => ({...prev, platforms: prev.platforms.includes(platform) ? prev.platforms.filter(p => p !== platform) : [...prev.platforms, platform]}));
@@ -498,7 +518,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Scheduled Time</label><input type="datetime-local" value={editData.scheduledAt} onChange={e => setEditData({...editData, scheduledAt: e.target.value})} required className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Platforms</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">{platformOptions.map(p => (<label key={p} className="flex items-center space-x-2"><input type="checkbox" checked={editData.platforms.includes(p)} onChange={() => handlePlatformChange(p)} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" /><span>{p}</span></label>))}</div></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({mediaPreviews.length} / 5)</label>
-                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV up to 50MB</p></div></div>
+                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="edit-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="edit-file-upload" name="edit-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV, PDF up to 50MB</p></div></div>
                                 {mediaPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index, index < editData.mediaUrls.length)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                             </div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={editData.caption} onChange={e => setEditData({...editData, caption: e.target.value})} rows="6" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
@@ -532,9 +552,24 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 </div>
                 <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && post.status !== 'Post Idea' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
+            {user.role === 'client' && post.status === 'Awaiting Media Upload' && (
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                    <h4 className="font-bold text-lg text-gray-800 mb-2">Upload Required Media</h4>
+                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({newMediaFiles.length} / 5)</label>
+                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="client-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="client-file-upload" name="client-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV, PDF up to 50MB</p></div></div>
+                        {mediaPreviews.filter(p => !p.isExisting).length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.filter(p => !p.isExisting).map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index + editData.mediaUrls.length, false)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
+                    </div>
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button onClick={handleClientUploadSubmit} disabled={isUploading || newMediaFiles.length === 0} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><UploadCloud size={18} className="mr-2" /> Upload Media</>}</button>
+                    </div>
+                </div>
+            )}
              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
                 {user.role === 'designer' && post.status === 'Scheduled' && !isEditing && (
-                    <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
+                    <>
+                        <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Media</button>
+                        <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
+                    </>
                 )}
                 {user.role === 'designer' && (
                     <button onClick={() => onDelete(post)} className="flex items-center text-sm bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Trash2 size={16} className="mr-2" /> Delete Post</button>
@@ -603,6 +638,7 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                                     let bgColor = 'bg-gray-200 text-gray-800';
                                     if(post.status === 'Post Idea') bgColor = 'bg-gray-200 text-gray-800';
                                     if (post.status === 'Scheduled') bgColor = 'bg-blue-200 text-blue-800';
+                                    if (post.status === 'Awaiting Media Upload') bgColor = 'bg-purple-200 text-purple-800';
                                     if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
                                     if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
                                     if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
@@ -761,6 +797,40 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
     );
 };
 
+const MediaLibrary = ({ posts }) => {
+    const postsWithMedia = useMemo(() => posts.filter(p => p.mediaUrls && p.mediaUrls.length > 0), [posts]);
+
+    const getFileIcon = (url) => {
+        if (url.includes('.mp4') || url.includes('.mov')) return <Video className="w-full h-full text-gray-500" />;
+        if (url.includes('.pdf')) return <FileIcon className="w-full h-full text-gray-500" />;
+        return <img src={url} alt="media" className="w-full h-full object-cover" />;
+    };
+
+    return (
+        <div className="space-y-8">
+            {postsWithMedia.length > 0 ? postsWithMedia.map(post => (
+                <div key={post.id} className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 line-clamp-2">{post.caption}</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {post.mediaUrls.map((url, index) => (
+                            <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
+                                {getFileIcon(url)}
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Download size={32} className="text-white" />
+                                </div>
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            )) : (
+                <div className="text-center py-20 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">
+                    No media has been uploaded yet.
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const Portal = ({ user, setNotification }) => {
     const [posts, setPosts] = useState([]);
@@ -771,7 +841,7 @@ const Portal = ({ user, setNotification }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
-    const [viewMode, setViewMode] = useState('overview'); // 'overview', 'pending', 'revision', 'approved', 'calendar', 'archived'
+    const [viewMode, setViewMode] = useState('overview'); // 'overview', 'pending', 'revision', 'approved', 'calendar', 'archived', 'library'
     const [subViewMode, setSubViewMode] = useState('bucket'); // 'bucket', 'list'
     const [postToDelete, setPostToDelete] = useState(null);
 
@@ -889,6 +959,28 @@ const Portal = ({ user, setNotification }) => {
             setNotification({ message: 'Failed to send for review.', type: 'error' }); 
         }
     };
+    const handleRequestMedia = async (postId) => {
+        try {
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
+            await updateDoc(postRef, { status: 'Awaiting Media Upload', updatedAt: serverTimestamp() });
+            setNotification({ message: 'Media request sent to client!', type: 'info' });
+        } catch (e) {
+            setNotification({ message: 'Failed to request media.', type: 'error' });
+        }
+    };
+    const handleClientMediaUploaded = async (postId, newMediaUrls) => {
+        try {
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
+            await updateDoc(postRef, {
+                mediaUrls: newMediaUrls,
+                status: 'Scheduled',
+                updatedAt: serverTimestamp()
+            });
+            setNotification({ message: 'Media uploaded successfully!', type: 'success' });
+        } catch (e) {
+            setNotification({ message: 'Failed to upload media.', type: 'error' });
+        }
+    };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
 
     const handleDeletePost = async () => {
@@ -936,15 +1028,17 @@ const Portal = ({ user, setNotification }) => {
         const designerColumns = {
             'Post Ideas': allActive.filter(p => p.status === 'Post Idea'),
             'Scheduled': allActive.filter(p => p.status === 'Scheduled'),
+            'Awaiting Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
             'Approved': allActive.filter(p => p.status === 'Approved'),
         };
 
         const clientColumns = {
-            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
-            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
-            'Approved': allActive.filter(p => p.status === 'Approved'),
+            'Awaiting Your Media': activePosts.filter(p => p.status === 'Awaiting Media Upload'),
+            'Pending Review': activePosts.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': activePosts.filter(p => p.status === 'Revisions Requested'),
+            'Approved': activePosts.filter(p => p.status === 'Approved'),
         };
 
         return user.role === 'designer' ? designerColumns : clientColumns;
@@ -966,12 +1060,16 @@ const Portal = ({ user, setNotification }) => {
         pending: 'Pending Review',
         revision: 'Revisions Requested',
         approved: 'Approved',
-        archived: 'Archived Posts'
+        archived: 'Archived Posts',
+        library: 'Media Library'
     };
 
     const renderContent = () => {
         if (viewMode === 'calendar') {
             return <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
+        }
+        if (viewMode === 'library') {
+            return <MediaLibrary posts={clientFilteredPosts} />;
         }
 
         if (subViewMode === 'list') {
@@ -981,7 +1079,7 @@ const Portal = ({ user, setNotification }) => {
         // Bucket View Logic
         if (viewMode === 'overview') {
             return (
-                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-3'}`}>
+                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
                             <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
@@ -1027,6 +1125,7 @@ const Portal = ({ user, setNotification }) => {
                             <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision</button>
                             <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
                             <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
+                            <button onClick={() => setViewMode('library')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'library' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Library size={16} className="inline mr-1.5" />Media Library</button>
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                         </div>
                         <div className="flex items-center gap-4">
@@ -1041,7 +1140,7 @@ const Portal = ({ user, setNotification }) => {
                                 </select>
                             </div>
                             )}
-                            {viewMode !== 'calendar' && (
+                            {viewMode !== 'calendar' && viewMode !== 'library' && (
                                 <div className="flex items-center gap-1 bg-gray-200 p-1 rounded-lg">
                                     <button onClick={() => setSubViewMode('bucket')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><LayoutGrid size={18} /></button>
                                     <button onClick={() => setSubViewMode('list')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'list' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><List size={18} /></button>
@@ -1050,7 +1149,7 @@ const Portal = ({ user, setNotification }) => {
                         </div>
                     </div>
                     <div className="mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{viewPosts.length}</span></h2>
+                        <h2 className="text-2xl font-bold text-gray-800">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{viewMode !== 'library' ? viewPosts.length : ''}</span></h2>
                     </div>
                     {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : renderContent()}
                 </div>
@@ -1064,7 +1163,7 @@ const Portal = ({ user, setNotification }) => {
                 onShare={handleShareIdea}
                 setNotification={setNotification}
             />
-            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} />)}
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded}/>)}
             <ConfirmationModal 
                 isOpen={!!postToDelete}
                 onClose={() => setPostToDelete(null)}
