@@ -17,7 +17,7 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
     messagingSenderId: "629544933010",
-    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b" 
+    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
     };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
@@ -448,7 +448,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
         if (e.target.files) {
             const files = Array.from(e.target.files);
             const currentFiles = isClientUpload ? clientUploadFiles : newMediaFiles;
-            const currentPreviews = isClientUpload ? clientUploadPreviews : mediaPreviews;
             const existingMediaCount = isClientUpload ? (post.mediaUrls || []).length : editData.mediaUrls.length;
 
             if ((existingMediaCount + currentFiles.length + files.length) > 5) { 
