@@ -880,6 +880,7 @@ const Portal = ({ user, setNotification }) => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [reviewingPost, setReviewingPost] = useState(null);
     const [clientFilter, setClientFilter] = useState('all');
+    const [timeFilter, setTimeFilter] = useState('all');
     const [viewMode, setViewMode] = useState('overview'); // 'overview', 'ideas', 'pending', 'revision', 'approved', 'calendar', 'library', 'archived'
     const [subViewMode, setSubViewMode] = useState('bucket'); // 'bucket', 'list'
     const [postToDelete, setPostToDelete] = useState(null);
@@ -1149,16 +1150,49 @@ const Portal = ({ user, setNotification }) => {
         return posts;
     }, [posts, clientFilter, user.role]);
 
+    const timeFilteredPosts = useMemo(() => {
+        if (timeFilter === 'all') {
+            return clientFilteredPosts;
+        }
+
+        const now = new Date();
+        let startDate;
+
+        switch (timeFilter) {
+            case 'week':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - now.getDay());
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case '2weeks':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 14);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            default:
+                return clientFilteredPosts;
+        }
+
+        return clientFilteredPosts.filter(post => {
+            const postDate = post.createdAt?.toDate();
+            return postDate && postDate >= startDate;
+        });
+    }, [clientFilteredPosts, timeFilter]);
+
     const activePosts = useMemo(() => {
-        let postsToFilter = clientFilteredPosts;
+        let postsToFilter = timeFilteredPosts;
         if (user.role === 'client') {
             postsToFilter = postsToFilter.filter(p => p.status !== 'Post Idea');
         }
         return postsToFilter.filter(p => p.status !== 'Archived');
-    }, [clientFilteredPosts, user.role]);
+    }, [timeFilteredPosts, user.role]);
 
-    const archivedPosts = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Archived'), [clientFilteredPosts]);
-    const postIdeas = useMemo(() => clientFilteredPosts.filter(p => p.status === 'Post Idea'), [clientFilteredPosts]);
+    const archivedPosts = useMemo(() => timeFilteredPosts.filter(p => p.status === 'Archived'), [timeFilteredPosts]);
+    const postIdeas = useMemo(() => timeFilteredPosts.filter(p => p.status === 'Post Idea'), [timeFilteredPosts]);
     
     const columns = useMemo(() => {
         const allActive = activePosts;
@@ -1206,10 +1240,10 @@ const Portal = ({ user, setNotification }) => {
 
     const renderContent = () => {
         if (viewMode === 'calendar') {
-            return <CalendarView posts={clientFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
+            return <CalendarView posts={timeFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
         }
         if (viewMode === 'library') {
-            return <MediaLibrary posts={clientFilteredPosts} />;
+            return <MediaLibrary posts={timeFilteredPosts} />;
         }
 
         if (subViewMode === 'list') {
@@ -1291,10 +1325,19 @@ const Portal = ({ user, setNotification }) => {
                             <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
                         </div>
                         <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <CalendarIcon size={16} className="text-gray-500" />
+                                <select onChange={(e) => setTimeFilter(e.target.value)} value={timeFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Time</option>
+                                    <option value="week">This Week</option>
+                                    <option value="2weeks">Last 2 Weeks</option>
+                                    <option value="month">This Month</option>
+                                </select>
+                            </div>
                             {user.role === 'designer' && (
                             <div className="flex items-center gap-2">
                                 <Filter size={16} className="text-gray-500" />
-                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-green-500 transition">
                                     <option value="all">All Clients</option>
                                     {clients.map(client => (
                                         <option key={client.id} value={client.id}>{client.name}</option>
