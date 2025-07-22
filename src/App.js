@@ -130,8 +130,8 @@ const DelayedLoopVideo = ({ src, className }) => {
 const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDelete, onConvertToPost }) => {
     const canApprove = user.role === 'client' && (post.status === 'Pending Review' || post.status === 'Revisions Requested');
     const canRevise = user.role === 'client' && post.status === 'Pending Review' && (post.revisionCount || 0) < 2;
-    const canArchive = user.role === 'designer' && post.status === 'Approved';
-    const canDelete = user.role === 'designer' && post.status === 'Archived';
+    const canArchive = post.status === 'Approved';
+    const canDelete = user.role === 'designer' && post.archivedBy && post.archivedBy.includes(user.uid);
     const canConvertToPost = user.role === 'designer' && post.status === 'Post Idea';
     
     const hasUnreadComments = useMemo(() => {
@@ -194,8 +194,8 @@ const PostListItem = ({ post, user, onReview, clients, onApprove, onRevise, onAr
 
     const canApprove = user.role === 'client' && (post.status === 'Pending Review' || post.status === 'Revisions Requested');
     const canRevise = user.role === 'client' && post.status === 'Pending Review' && (post.revisionCount || 0) < 2;
-    const canArchive = user.role === 'designer' && post.status === 'Approved';
-    const canDelete = user.role === 'designer' && post.status === 'Archived';
+    const canArchive = post.status === 'Approved';
+    const canDelete = user.role === 'designer' && post.archivedBy && post.archivedBy.includes(user.uid);
     const canConvertToPost = user.role === 'designer' && post.status === 'Post Idea';
 
     return (
@@ -713,12 +713,19 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                             <div className="flex-grow overflow-y-auto text-left text-xs space-y-1 mt-1">
                                 {dayPosts.map(post => {
                                     let bgColor = 'bg-gray-200 text-gray-800';
-                                    if(post.status === 'Post Idea') bgColor = 'bg-gray-200 text-gray-800';
-                                    if (post.status === 'In Progress') bgColor = 'bg-blue-200 text-blue-800';
-                                    if (post.status === 'Awaiting Media Upload') bgColor = 'bg-purple-200 text-purple-800';
-                                    if (post.status === 'Approved') bgColor = 'bg-green-200 text-green-800';
-                                    if (post.status === 'Revisions Requested') bgColor = 'bg-red-200 text-red-800';
-                                    if (post.status === 'Pending Review') bgColor = 'bg-yellow-200 text-yellow-800';
+                                    if (post.status === 'Approved') {
+                                        bgColor = 'bg-green-200 text-green-800';
+                                    } else if(post.status === 'Post Idea') {
+                                        bgColor = 'bg-gray-200 text-gray-800';
+                                    } else if (post.status === 'In Progress') {
+                                        bgColor = 'bg-blue-200 text-blue-800';
+                                    } else if (post.status === 'Awaiting Media Upload') {
+                                        bgColor = 'bg-purple-200 text-purple-800';
+                                    } else if (post.status === 'Revisions Requested') {
+                                        bgColor = 'bg-red-200 text-red-800';
+                                    } else if (post.status === 'Pending Review') {
+                                        bgColor = 'bg-yellow-200 text-yellow-800';
+                                    }
 
                                     return (
                                         <div key={post.id} onClick={(e) => { e.stopPropagation(); onSelectEvent(post); }} className={`p-1 rounded cursor-pointer hover:opacity-75 ${bgColor}`}>
@@ -1112,7 +1119,15 @@ const Portal = ({ user, setNotification }) => {
         } catch (e) { 
             setNotification({ message: 'Failed to request revision.', type: 'error' }); 
         }};
-    const handleArchivePost = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Archived', updatedAt: serverTimestamp() }); setNotification({ message: 'Post archived.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to archive post.', type: 'error' }); }};
+    const handleArchivePost = async (postId) => { 
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); 
+            await updateDoc(postRef, { archivedBy: arrayUnion(user.uid) }); 
+            setNotification({ message: 'Post archived.', type: 'info' }); 
+        } catch (e) { 
+            setNotification({ message: 'Failed to archive post.', type: 'error' }); 
+        }
+    };
     const handleSendToReview = async (post) => { 
         if (!post.mediaUrls || post.mediaUrls.length === 0) {
             setNotification({ message: 'Please add media to the post before sending for review.', type: 'error' });
@@ -1220,14 +1235,10 @@ const Portal = ({ user, setNotification }) => {
     }, [clientFilteredPosts, timeFilter]);
 
     const activePosts = useMemo(() => {
-        let postsToFilter = timeFilteredPosts;
-        if (user.role === 'client') {
-            postsToFilter = postsToFilter.filter(p => p.status !== 'Post Idea');
-        }
-        return postsToFilter.filter(p => p.status !== 'Archived');
-    }, [timeFilteredPosts, user.role]);
+        return timeFilteredPosts.filter(p => (!p.archivedBy || !p.archivedBy.includes(user.uid)) && p.status !== 'Post Idea');
+    }, [timeFilteredPosts, user.uid]);
 
-    const archivedPosts = useMemo(() => timeFilteredPosts.filter(p => p.status === 'Archived'), [timeFilteredPosts]);
+    const archivedPosts = useMemo(() => timeFilteredPosts.filter(p => p.archivedBy && p.archivedBy.includes(user.uid)), [timeFilteredPosts, user.uid]);
     const postIdeas = useMemo(() => timeFilteredPosts.filter(p => p.status === 'Post Idea'), [timeFilteredPosts]);
     
     const columns = useMemo(() => {
