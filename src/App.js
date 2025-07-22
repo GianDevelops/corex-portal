@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, Notebook } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -267,12 +267,14 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
     const [selectedClientId, setSelectedClientId] = useState('');
     const [scheduledAt, setScheduledAt] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [internalNotes, setInternalNotes] = useState('');
 
     useEffect(() => {
         if (initialData) {
             setPlatforms(initialData.platforms || []);
             setCaption(initialData.caption || '');
             setHashtags(initialData.hashtags || '');
+            setInternalNotes(initialData.internalNotes || '');
             setMediaPreviews(initialData.mediaUrls?.map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video/mp4' : 'image/jpeg', isExisting: true })) || []);
             setSelectedClientId(initialData.clientId || '');
         } else if (clients.length > 0) {
@@ -331,7 +333,7 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
             const existingMediaUrls = mediaPreviews.filter(p => p.isExisting).map(p => p.url);
             const finalMediaUrls = [...existingMediaUrls, ...uploadedMediaUrls];
 
-            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'In Progress', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt) };
+            const newPost = { platforms, caption, hashtags, mediaUrls: finalMediaUrls, clientId: selectedClientId, designerId: user.uid, status: 'In Progress', feedback: [], revisionCount: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), seenBy: [user.uid], scheduledAt: new Date(scheduledAt), internalNotes };
             onPostCreated(newPost, initialData?.id);
         } catch (error) {
             console.error("Media upload failed:", error);
@@ -378,6 +380,12 @@ const NewPostForm = ({ user, clients, onPostCreated, onCancel, initialData, sele
                     </div>
                 )}
             </div>
+             {user.role === 'designer' && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Internal Notes (Visible only to you)</label>
+                    <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)} rows="3" placeholder="Add any internal notes here..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea>
+                </div>
+            )}
             <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onCancel} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button type="submit" disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Saving...' : <><Save size={18} className="mr-2" /> Save In Progress</>}</button></div>
         </form>
     );
@@ -403,11 +411,12 @@ const formatTimestamp = (isoString) => {
 const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '' });
+    const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '', internalNotes: '' });
     const [newMediaFiles, setNewMediaFiles] = useState([]);
     const [mediaPreviews, setMediaPreviews] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
 
     useEffect(() => {
         if (post) {
@@ -422,7 +431,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 hashtags: post.hashtags || '', 
                 mediaUrls: post.mediaUrls || [], 
                 platforms: post.platforms || [],
-                scheduledAt: formattedScheduleDate
+                scheduledAt: formattedScheduleDate,
+                internalNotes: post.internalNotes || ''
             });
             setMediaPreviews((post.mediaUrls || []).map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video' : 'image' })));
             setNewMediaFiles([]);
@@ -483,6 +493,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 platforms: editData.platforms, 
                 seenBy: [user.uid],
                 scheduledAt: new Date(editData.scheduledAt),
+                internalNotes: editData.internalNotes
             };
             
             if(post.status === 'Post Idea') {
@@ -498,6 +509,11 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
         } finally {
             setIsUploading(false);
         }
+    };
+
+    const handleSaveNotes = async () => {
+        await onUpdatePost(post.id, { internalNotes: editData.internalNotes });
+        setIsEditingNotes(false);
     };
 
     const handleClientUploadSubmit = async () => {
@@ -562,6 +578,9 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                             </div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Caption</label><textarea value={editData.caption} onChange={e => setEditData({...editData, caption: e.target.value})} rows="6" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
                             <div><label className="block text-sm font-medium text-gray-700 mb-2">Hashtags</label><input type="text" value={editData.hashtags} onChange={e => setEditData({...editData, hashtags: e.target.value})} className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition" /></div>
+                            {user.role === 'designer' && (
+                                <div><label className="block text-sm font-medium text-gray-700 mb-2">Internal Notes</label><textarea value={editData.internalNotes} onChange={e => setEditData({...editData, internalNotes: e.target.value})} rows="3" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea></div>
+                            )}
                             <div className="flex justify-end gap-4 pt-4"><button onClick={() => setIsEditing(false)} className="py-2 px-5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold transition-colors">Cancel</button><button onClick={handleSaveChanges} disabled={isUploading} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Saving...' : <><Save size={18} className="mr-2" /> Save Changes</>}</button></div>
                         </>
                     ) : (
@@ -589,7 +608,26 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                         </>
                     )}
                 </div>
-                <div className="flex flex-col h-full"><div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
+                <div className="flex flex-col h-full">
+                    {user.role === 'designer' && !isEditing && (
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-lg text-gray-800">Internal Notes</h4>
+                                <button onClick={() => setIsEditingNotes(!isEditingNotes)} className="flex items-center text-sm text-gray-600 hover:text-black font-semibold py-1 px-2 rounded-lg transition-colors"><Edit size={14} className="mr-1.5" />{isEditingNotes ? 'Cancel' : 'Edit'}</button>
+                            </div>
+                            {isEditingNotes ? (
+                                <div>
+                                    <textarea value={editData.internalNotes} onChange={e => setEditData({...editData, internalNotes: e.target.value})} rows="4" className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition"></textarea>
+                                    <div className="text-right mt-2">
+                                        <button onClick={handleSaveNotes} className="py-1 px-4 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors text-sm">Save Notes</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap min-h-[6rem]">{post?.internalNotes || 'No notes yet.'}</p>
+                            )}
+                        </div>
+                    )}
+                    <div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
             {user.role === 'client' && post.status === 'Awaiting Media Upload' && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
