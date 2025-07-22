@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -884,6 +884,47 @@ const Portal = ({ user, setNotification }) => {
     const [subViewMode, setSubViewMode] = useState('bucket'); // 'bucket', 'list'
     const [postToDelete, setPostToDelete] = useState(null);
     const [ideaToConvert, setIdeaToConvert] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+    const createNotification = async (userId, postId, message) => {
+        await addDoc(collection(db, `artifacts/${appId}/public/data/notifications`), {
+            userId,
+            postId,
+            message,
+            createdAt: serverTimestamp(),
+            read: false,
+        });
+    };
+
+    useEffect(() => {
+        const q = query(collection(db, `artifacts/${appId}/public/data/notifications`), where("userId", "==", user.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            notifs.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+            setNotifications(notifs);
+        });
+        return () => unsubscribe();
+    }, [user.uid]);
+
+    const unreadNotifications = useMemo(() => notifications.filter(n => !n.read), [notifications]);
+
+    const handleMarkNotificationsAsRead = async () => {
+        const batch = writeBatch(db);
+        unreadNotifications.forEach(notif => {
+            const notifRef = doc(db, `artifacts/${appId}/public/data/notifications`, notif.id);
+            batch.update(notifRef, { read: true });
+        });
+        await batch.commit();
+    };
+
+    const handleNotificationClick = (notification) => {
+        const post = posts.find(p => p.id === notification.postId);
+        if (post) {
+            handleOpenReview(post);
+        }
+        setIsNotificationsOpen(false);
+    };
 
     const markAsSeen = async (postId) => {
         const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
@@ -915,6 +956,11 @@ const Portal = ({ user, setNotification }) => {
         
         if (userPosts.length > 0) {
             designerId = userPosts[0].designerId;
+        } else {
+             const designersSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "designer")));
+             if (!designersSnapshot.empty) {
+                designerId = designersSnapshot.docs[0].id;
+             }
         }
 
         const newIdeaPost = {
@@ -932,12 +978,10 @@ const Portal = ({ user, setNotification }) => {
             revisionCount: 0,
             scheduledAt: null,
         };
-        try {
-            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newIdeaPost);
-            setNotification({ message: 'Idea shared! Your designer will be notified.', type: 'success' });
-        } catch (e) {
-            setNotification({ message: 'Failed to share idea.', type: 'error' });
-            console.error("Error sharing idea: ", e);
+        const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newIdeaPost);
+        setNotification({ message: 'Idea shared! Your designer will be notified.', type: 'success' });
+        if(designerId) {
+            await createNotification(designerId, docRef.id, `${user.name} shared a new post idea.`);
         }
     };
 
@@ -976,21 +1020,59 @@ const Portal = ({ user, setNotification }) => {
 
     const handleCreatePost = async (newPostData, ideaIdToDelete) => { 
         try { 
-            await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); 
+            const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/social_media_posts`), newPostData); 
             if (ideaIdToDelete) {
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, ideaIdToDelete));
             }
             setIsNewPostModalOpen(false); 
             setIdeaToConvert(null);
             setNotification({ message: 'Post saved as In Progress!', type: 'success' }); 
+            await createNotification(newPostData.clientId, docRef.id, `A new post "${newPostData.caption}" is in progress.`);
         } catch (e) { 
             setNotification({ message: 'Failed to save post.', type: 'error' }); 
         } 
     };
     const handleUpdatePost = async (postId, updatedData) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { ...updatedData, updatedAt: serverTimestamp() }); setNotification({ message: 'Post updated!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to update post.', type: 'error' }); } };
-    const handleApprovePost = async (postId) => { try { await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); setNotification({ message: 'Post approved!', type: 'success' }); } catch (e) { setNotification({ message: 'Failed to approve post.', type: 'error' }); } };
-    const handleAddFeedback = async (postId, feedbackData) => { try { const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); setNotification({ message: 'Comment posted.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to add feedback.', type: 'error' }); } };
-    const handleRequestRevision = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); setNotification({ message: 'Revision requested.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to request revision.', type: 'error' }); }};
+    const handleApprovePost = async (postId) => { 
+        const post = posts.find(p => p.id === postId);
+        try { 
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), { status: 'Approved', updatedAt: serverTimestamp() }); 
+            setNotification({ message: 'Post approved!', type: 'success' }); 
+            if (post && post.designerId) {
+                await createNotification(post.designerId, postId, `Your post "${post.caption}" was approved.`);
+            }
+        } catch (e) { 
+            setNotification({ message: 'Failed to approve post.', type: 'error' }); 
+        } 
+    };
+    const handleAddFeedback = async (postId, feedbackData) => { 
+        const post = posts.find(p => p.id === postId);
+        try { 
+            const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; 
+            await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); 
+            setNotification({ message: 'Comment posted.', type: 'info' }); 
+            if (post) {
+                const notifyUserId = user.role === 'designer' ? post.clientId : post.designerId;
+                if (notifyUserId) {
+                    await createNotification(notifyUserId, postId, `${user.name} left feedback on "${post.caption}".`);
+                }
+            }
+        } catch (e) { 
+            setNotification({ message: 'Failed to add feedback.', type: 'error' }); 
+        } 
+    };
+    const handleRequestRevision = async (postId) => { 
+        const post = posts.find(p => p.id === postId);
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); 
+            await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); 
+            setNotification({ message: 'Revision requested.', type: 'info' }); 
+            if (post && post.designerId) {
+                await createNotification(post.designerId, postId, `Revisions were requested for "${post.caption}".`);
+            }
+        } catch (e) { 
+            setNotification({ message: 'Failed to request revision.', type: 'error' }); 
+        }};
     const handleArchivePost = async (postId) => { try { const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); await updateDoc(postRef, { status: 'Archived', updatedAt: serverTimestamp() }); setNotification({ message: 'Post archived.', type: 'info' }); } catch (e) { setNotification({ message: 'Failed to archive post.', type: 'error' }); }};
     const handleSendToReview = async (post) => { 
         if (!post.mediaUrls || post.mediaUrls.length === 0) {
@@ -1001,20 +1083,26 @@ const Portal = ({ user, setNotification }) => {
             const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, post.id); 
             await updateDoc(postRef, { status: 'Pending Review', updatedAt: serverTimestamp() }); 
             setNotification({ message: 'Post sent for review!', type: 'success' }); 
+            await createNotification(post.clientId, post.id, `"${post.caption}" is ready for your review.`);
         } catch (e) { 
             setNotification({ message: 'Failed to send for review.', type: 'error' }); 
         }
     };
     const handleRequestMedia = async (postId) => {
+        const post = posts.find(p => p.id === postId);
         try {
             const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
             await updateDoc(postRef, { status: 'Awaiting Media Upload', updatedAt: serverTimestamp() });
             setNotification({ message: 'Media request sent to client!', type: 'info' });
+            if (post) {
+                await createNotification(post.clientId, postId, `Media has been requested for "${post.caption}".`);
+            }
         } catch (e) {
             setNotification({ message: 'Failed to request media.', type: 'error' });
         }
     };
     const handleClientMediaUploaded = async (postId, newMediaUrls) => {
+        const post = posts.find(p => p.id === postId);
         try {
             const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
             await updateDoc(postRef, {
@@ -1023,6 +1111,9 @@ const Portal = ({ user, setNotification }) => {
                 updatedAt: serverTimestamp()
             });
             setNotification({ message: 'Media uploaded successfully!', type: 'success' });
+            if (post && post.designerId) {
+                await createNotification(post.designerId, postId, `Media has been uploaded for "${post.caption}".`);
+            }
         } catch (e) {
             setNotification({ message: 'Failed to upload media.', type: 'error' });
         }
@@ -1131,7 +1222,7 @@ const Portal = ({ user, setNotification }) => {
                 <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-5'}`}>
                     {Object.entries(columns).map(([status, postsInColumn]) => (
                         <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
-                            <h2 className="text-lg font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
+                            <h2 className="text-md font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center whitespace-nowrap">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
                             <div className="overflow-y-auto p-4 pt-0">
                                 <div className="space-y-4">
                                     {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
@@ -1157,7 +1248,28 @@ const Portal = ({ user, setNotification }) => {
             <header className="sticky top-0 bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <button onClick={() => { setIsNotificationsOpen(!isNotificationsOpen); if(!isNotificationsOpen) { handleMarkNotificationsAsRead(); } }} className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative">
+                                <Bell size={20} />
+                                {unreadNotifications.length > 0 && (
+                                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                                )}
+                            </button>
+                            {isNotificationsOpen && (
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                                    <div className="p-3 border-b font-semibold text-gray-700">Notifications</div>
+                                    <div className="max-h-96 overflow-y-auto">
+                                        {notifications.length > 0 ? notifications.map(notif => (
+                                            <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notif.read ? 'bg-green-50' : ''}`}>
+                                                <p className="text-sm text-gray-700">{notif.message}</p>
+                                                <p className="text-xs text-gray-400 mt-1">{formatTimestamp(notif.createdAt?.toDate().toISOString())}</p>
+                                            </div>
+                                        )) : <p className="p-4 text-sm text-gray-500 text-center">No notifications yet.</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
                         {user.role === 'designer' && (<button onClick={() => { setSelectedDate(null); setIdeaToConvert(null); setIsNewPostModalOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
                         {user.role === 'client' && (<button onClick={() => setIsClientIdeaModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Lightbulb size={20} className="mr-2" /> Share Idea</button>)}
