@@ -185,36 +185,51 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
     );
 };
 
-const PostListItem = ({ post, user, onReview, clients }) => {
+const PostListItem = ({ post, user, onReview, clients, onApprove, onRevise, onArchive, onDelete, onConvertToPost }) => {
     const clientName = useMemo(() => {
         if (user.role !== 'designer' || !clients) return '';
         const client = clients.find(c => c.id === post.clientId);
         return client ? client.name : 'Unknown Client';
     }, [post.clientId, clients, user.role]);
 
+    const canApprove = user.role === 'client' && (post.status === 'Pending Review' || post.status === 'Revisions Requested');
+    const canRevise = user.role === 'client' && post.status === 'Pending Review' && (post.revisionCount || 0) < 2;
+    const canArchive = user.role === 'designer' && post.status === 'Approved';
+    const canDelete = user.role === 'designer' && post.status === 'Archived';
+    const canConvertToPost = user.role === 'designer' && post.status === 'Post Idea';
+
     return (
-        <tr onClick={() => onReview(post)} className="bg-white hover:bg-gray-50 border-b border-gray-200 cursor-pointer">
-            <td className="px-4 py-3 w-16">
+        <tr className="bg-white border-b border-gray-200">
+            <td className="px-4 py-3 w-16" onClick={() => onReview(post)}>
                 {post.mediaUrls && post.mediaUrls.length > 0 ? (
-                    <img src={post.mediaUrls[0]} alt="media" className="w-12 h-12 object-cover rounded-md" onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/100x100/f0f0f0/333333?text=N/A'; }} />
+                    <img src={post.mediaUrls[0]} alt="media" className="w-12 h-12 object-cover rounded-md cursor-pointer" onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/100x100/f0f0f0/333333?text=N/A'; }} />
                 ) : (
-                    <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center cursor-pointer">
                         <ImageIcon size={20} className="text-gray-400" />
                     </div>
                 )}
             </td>
-            <td className="px-4 py-3">
-                <p className="font-medium text-gray-800 line-clamp-2">{post.caption}</p>
+            <td className="px-4 py-3" onClick={() => onReview(post)}>
+                <p className="font-medium text-gray-800 line-clamp-2 cursor-pointer">{post.caption}</p>
                 {user.role === 'designer' && <p className="text-xs text-gray-500">{clientName}</p>}
             </td>
-            <td className="px-4 py-3">{getStatusChip(post.status)}</td>
-            <td className="px-4 py-3 text-sm text-gray-600">{post.scheduledAt?.toDate ? post.scheduledAt.toDate().toLocaleDateString() : 'Unscheduled'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600 text-center">{post.feedback?.length || 0}</td>
+            <td className="px-4 py-3" onClick={() => onReview(post)}>{getStatusChip(post.status)}</td>
+            <td className="px-4 py-3 text-sm text-gray-600" onClick={() => onReview(post)}>{post.scheduledAt?.toDate ? post.scheduledAt.toDate().toLocaleDateString() : 'Unscheduled'}</td>
+            <td className="px-4 py-3 text-sm text-gray-600 text-center" onClick={() => onReview(post)}>{post.feedback?.length || 0}</td>
+            <td className="px-4 py-3 text-right">
+                <div className="flex items-center justify-end space-x-2">
+                    {canConvertToPost && (<button onClick={(e) => { e.stopPropagation(); onConvertToPost(post); }} title="Convert to Post" className="p-2 text-blue-500 hover:bg-blue-100 rounded-full transition-colors"><Repeat size={16} /></button>)}
+                    {canRevise && (<button onClick={(e) => {e.stopPropagation(); onRevise(post.id);}} title="Request Revisions" className="p-2 text-gray-700 hover:bg-gray-200 rounded-full transition-colors"><Edit size={16} /></button>)}
+                    {canApprove && (<button onClick={(e) => {e.stopPropagation(); onApprove(post.id);}} title="Approve" className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors"><ThumbsUp size={16} /></button>)}
+                    {canArchive && (<button onClick={(e) => {e.stopPropagation(); onArchive(post.id);}} title="Archive" className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"><Archive size={16} /></button>)}
+                    {canDelete && (<button onClick={(e) => {e.stopPropagation(); onDelete(post);}} title="Delete" className="p-2 text-red-500 hover:bg-red-100 rounded-full transition-colors"><Trash2 size={16} /></button>)}
+                </div>
+            </td>
         </tr>
     );
 };
 
-const ListView = ({ posts, user, onReview, clients }) => {
+const ListView = ({ posts, user, onReview, clients, onApprove, onRevise, onArchive, onDelete, onConvertToPost }) => {
     return (
         <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
             <table className="w-full text-left text-sm">
@@ -225,14 +240,15 @@ const ListView = ({ posts, user, onReview, clients }) => {
                         <th className="px-4 py-2 font-semibold text-gray-600">Status</th>
                         <th className="px-4 py-2 font-semibold text-gray-600">Scheduled</th>
                         <th className="px-4 py-2 font-semibold text-gray-600 text-center">Comments</th>
+                        <th className="px-4 py-2 font-semibold text-gray-600 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {posts.length > 0 ? (
-                        posts.map(post => <PostListItem key={post.id} post={post} user={user} onReview={onReview} clients={clients} />)
+                        posts.map(post => <PostListItem key={post.id} post={post} user={user} onReview={onReview} clients={clients} onApprove={onApprove} onRevise={onRevise} onArchive={onArchive} onDelete={onDelete} onConvertToPost={onConvertToPost} />)
                     ) : (
                         <tr>
-                            <td colSpan="5" className="text-center py-10 text-gray-400 text-sm">No posts in this view.</td>
+                            <td colSpan="6" className="text-center py-10 text-gray-400 text-sm">No posts in this view.</td>
                         </tr>
                     )}
                 </tbody>
@@ -1106,7 +1122,7 @@ const Portal = ({ user, setNotification }) => {
         }
 
         if (subViewMode === 'list') {
-            return <ListView posts={viewPosts} user={user} onReview={handleOpenReview} clients={clients} />;
+            return <ListView posts={viewPosts} user={user} onReview={handleOpenReview} clients={clients} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>;
         }
         
         // Bucket View Logic
