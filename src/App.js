@@ -1159,23 +1159,21 @@ const Portal = ({ user, setNotification }) => {
         let startDate;
 
         switch (timeFilter) {
-            case 'week':
+            case '7days':
                 startDate = new Date(now);
-                startDate.setDate(now.getDate() - now.getDay());
-                startDate.setHours(0, 0, 0, 0);
+                startDate.setDate(now.getDate() - 7);
                 break;
-            case '2weeks':
+            case '30days':
                 startDate = new Date(now);
-                startDate.setDate(now.getDate() - 14);
-                startDate.setHours(0, 0, 0, 0);
+                startDate.setDate(now.getDate() - 30);
                 break;
             case 'month':
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                startDate.setHours(0, 0, 0, 0);
                 break;
             default:
                 return clientFilteredPosts;
         }
+        startDate.setHours(0, 0, 0, 0);
 
         return clientFilteredPosts.filter(post => {
             const postDate = post.createdAt?.toDate();
@@ -1329,8 +1327,8 @@ const Portal = ({ user, setNotification }) => {
                                 <CalendarIcon size={16} className="text-gray-500" />
                                 <select onChange={(e) => setTimeFilter(e.target.value)} value={timeFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-green-500 transition">
                                     <option value="all">All Time</option>
-                                    <option value="week">This Week</option>
-                                    <option value="2weeks">Last 2 Weeks</option>
+                                    <option value="7days">Last 7 Days</option>
+                                    <option value="30days">Last 30 Days</option>
                                     <option value="month">This Month</option>
                                 </select>
                             </div>
