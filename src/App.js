@@ -471,6 +471,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             
             if(post.status === 'Post Idea') {
                 finalPostData.status = 'In Progress';
+            } else if (post.status === 'Revisions Requested') {
+                finalPostData.status = 'Pending Review';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -586,11 +588,11 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 </div>
             )}
              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
+                {user.role === 'designer' && (post.status === 'In Progress' || post.status === 'Revisions Requested') && !isEditing && (
+                    <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
+                )}
                 {user.role === 'designer' && post.status === 'In Progress' && !isEditing && (
-                    <>
-                        <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Media</button>
-                        <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
-                    </>
+                    <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Media</button>
                 )}
                 {user.role === 'designer' && (
                     <button onClick={() => onDelete(post)} className="flex items-center text-sm bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Trash2 size={16} className="mr-2" /> Delete Post</button>
@@ -1075,7 +1077,7 @@ const Portal = ({ user, setNotification }) => {
 
     const viewPosts = useMemo(() => {
         switch(viewMode) {
-            case 'overview': return activePosts;
+            case 'overview': return activePosts.filter(p => p.status !== 'Post Idea');
             case 'ideas': return postIdeas;
             case 'pending': return columns['Pending Review'] || [];
             case 'revision': return columns['Revisions Requested'] || [];
