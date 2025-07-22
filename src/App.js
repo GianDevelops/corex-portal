@@ -17,7 +17,7 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     projectId: "social-hub-d1682",
     storageBucket: "social-hub-d1682.firebasestorage.app",
     messagingSenderId: "629544933010",
-    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+    appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b" 
     };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
@@ -417,6 +417,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
     const [isUploading, setIsUploading] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [clientUploadFiles, setClientUploadFiles] = useState([]);
+    const [clientUploadPreviews, setClientUploadPreviews] = useState([]);
 
     useEffect(() => {
         if (post) {
@@ -434,7 +436,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 scheduledAt: formattedScheduleDate,
                 internalNotes: post.internalNotes || ''
             });
-            setMediaPreviews((post.mediaUrls || []).map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video' : 'image' })));
+            setMediaPreviews((post.mediaUrls || []).map(url => ({ url, type: url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') ? 'video' : 'image', isExisting: true })));
             setNewMediaFiles([]);
             setCurrentMediaIndex(0);
         }
@@ -442,16 +444,31 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
 
     const handleFeedbackSubmit = () => { if (!comment.trim()) return; const feedbackData = { authorId: user.uid, authorName: user.name, text: comment, timestamp: new Date().toISOString(), authorRole: user.role }; onAddFeedback(post.id, feedbackData); setComment(''); };
     
-    const handleFileChange = (e) => {
+    const handleFileChange = (e, isClientUpload = false) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
-            if ((editData.mediaUrls.length + newMediaFiles.length + files.length) > 5) { alert("You can only have a maximum of 5 files."); return; }
-            setNewMediaFiles(prev => [...prev, ...files]);
+            const currentFiles = isClientUpload ? clientUploadFiles : newMediaFiles;
+            const currentPreviews = isClientUpload ? clientUploadPreviews : mediaPreviews;
+            const existingMediaCount = isClientUpload ? (post.mediaUrls || []).length : editData.mediaUrls.length;
+
+            if ((existingMediaCount + currentFiles.length + files.length) > 5) { 
+                alert("You can only have a maximum of 5 files."); 
+                return; 
+            }
+
+            const newFiles = [...currentFiles, ...files];
             const newPreviews = files.map(file => ({
                 url: URL.createObjectURL(file),
                 type: file.type
             }));
-            setMediaPreviews(prev => [...prev, ...newPreviews]);
+            
+            if (isClientUpload) {
+                setClientUploadFiles(newFiles);
+                setClientUploadPreviews(prev => [...prev, ...newPreviews]);
+            } else {
+                setNewMediaFiles(newFiles);
+                setMediaPreviews(prev => [...prev, ...newPreviews]);
+            }
         }
     };
 
@@ -468,6 +485,11 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             newMediaPreviews.splice(index, 1);
             setMediaPreviews(newMediaPreviews);
         }
+    };
+
+    const removeClientUploadMedia = (index) => {
+        setClientUploadFiles(prev => prev.filter((_, i) => i !== index));
+        setClientUploadPreviews(prev => prev.filter((_, i) => i !== index));
     };
 
     const uploadMedia = async (files) => {
@@ -517,13 +539,13 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
     };
 
     const handleClientUploadSubmit = async () => {
-        if (newMediaFiles.length === 0) {
+        if (clientUploadFiles.length === 0) {
             alert("Please select files to upload.");
             return;
         }
         setIsUploading(true);
         try {
-            const newUploadedUrls = await uploadMedia(newMediaFiles);
+            const newUploadedUrls = await uploadMedia(clientUploadFiles);
             const finalMediaUrls = [...(post.mediaUrls || []), ...newUploadedUrls];
             await onClientMediaUploaded(post.id, finalMediaUrls);
             onClose();
@@ -632,12 +654,12 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             {user.role === 'client' && post.status === 'Awaiting Media Upload' && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
                     <h4 className="font-bold text-lg text-gray-800 mb-2">Upload Required Media</h4>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({newMediaFiles.length} / 5)</label>
-                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="client-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="client-file-upload" name="client-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" onChange={handleFileChange} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV, PDF up to 50MB</p></div></div>
-                        {mediaPreviews.filter(p => !p.isExisting).length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{mediaPreviews.filter(p => !p.isExisting).map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeMedia(index + editData.mediaUrls.length, false)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
+                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({clientUploadFiles.length} / 5)</label>
+                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="client-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="client-file-upload" name="client-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" onChange={(e) => handleFileChange(e, true)} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV, PDF up to 50MB</p></div></div>
+                        {clientUploadPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{clientUploadPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeClientUploadMedia(index)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
-                        <button onClick={handleClientUploadSubmit} disabled={isUploading || newMediaFiles.length === 0} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><UploadCloud size={18} className="mr-2" /> Upload Media</>}</button>
+                        <button onClick={handleClientUploadSubmit} disabled={isUploading || clientUploadFiles.length === 0} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><UploadCloud size={18} className="mr-2" /> Upload Media</>}</button>
                     </div>
                 </div>
             )}
