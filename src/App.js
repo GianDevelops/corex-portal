@@ -18,6 +18,7 @@ if (typeof __firebase_config !== 'undefined' && __firebase_config) {
     storageBucket: "social-hub-d1682.firebasestorage.app",
     messagingSenderId: "629544933010",
     appId: "1:629544933010:web:54d6b73ca31dd5dcbcb84b"
+
     };
 }
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-social-approval-app';
@@ -408,7 +409,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded }) => {
+const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded, onConvertToPost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '', internalNotes: '' });
@@ -422,9 +423,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
 
     useEffect(() => {
         if (post) {
-            if(post.status === 'Post Idea' && user.role === 'designer'){
-                setIsEditing(true);
-            }
             const scheduledAtDate = post.scheduledAt?.toDate ? post.scheduledAt.toDate() : post.scheduledAt ? new Date(post.scheduledAt) : null;
             const formattedScheduleDate = scheduledAtDate ? `${scheduledAtDate.getFullYear()}-${String(scheduledAtDate.getMonth() + 1).padStart(2, '0')}-${String(scheduledAtDate.getDate()).padStart(2, '0')}T${String(scheduledAtDate.getHours()).padStart(2, '0')}:${String(scheduledAtDate.getMinutes()).padStart(2, '0')}`: '';
             
@@ -440,7 +438,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             setNewMediaFiles([]);
             setCurrentMediaIndex(0);
         }
-    }, [post, user.role]);
+    }, [post]);
 
     const handleFeedbackSubmit = () => { if (!comment.trim()) return; const feedbackData = { authorId: user.uid, authorName: user.name, text: comment, timestamp: new Date().toISOString(), authorRole: user.role }; onAddFeedback(post.id, feedbackData); setComment(''); };
     
@@ -1436,7 +1434,7 @@ const Portal = ({ user, setNotification }) => {
                 onShare={handleShareIdea}
                 setNotification={setNotification}
             />
-            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded}/>)}
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost}/>)}
             <ConfirmationModal 
                 isOpen={!!postToDelete}
                 onClose={() => setPostToDelete(null)}
