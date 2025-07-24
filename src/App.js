@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -1200,24 +1200,17 @@ const Portal = ({ user, setNotification }) => {
     };
 
     const handleDownload = async (url) => {
+        // NEW DOWNLOAD LOGIC
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error('Network response was not ok.');
-            }
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            const fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0];
-            link.download = decodeURIComponent(fileName) || 'download';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
+            const functionUrl = `https://us-central1-${firebaseConfig.projectId}.cloudfunctions.net/downloadFile`;
+            const downloadUrl = `${functionUrl}?fileUrl=${encodeURIComponent(url)}`;
+            
+            // This will open the function URL in a new tab, which will then trigger the download.
+            window.open(downloadUrl, '_blank');
+            
         } catch (error) {
             console.error("Download failed:", error);
-            setNotification({ message: 'Download failed. Please check CORS configuration.', type: 'error' });
+            setNotification({ message: 'Download failed.', type: 'error' });
         }
     };
 
