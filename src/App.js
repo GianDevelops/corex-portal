@@ -517,8 +517,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             
             if(post.status === 'Post Idea') {
                 finalPostData.status = 'In Progress';
-            } else if (post.status === 'Revisions Requested') {
-                finalPostData.status = 'Pending Review';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
@@ -661,6 +659,9 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                 </div>
             )}
              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end items-center gap-4">
+                {user.role === 'designer' && post.status === 'Post Idea' && !isEditing && (
+                    <button onClick={() => { onConvertToPost(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Repeat size={16} className="mr-2" /> Convert to Post</button>
+                )}
                 {user.role === 'designer' && (post.status === 'In Progress' || post.status === 'Revisions Requested') && !isEditing && (
                     <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
                 )}
