@@ -1200,16 +1200,23 @@ const Portal = ({ user, setNotification }) => {
 
     const handleDownload = async (url) => {
         try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Network response was not ok.');
+            }
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
+            link.href = blobUrl;
             const fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0];
-            link.setAttribute('download', decodeURIComponent(fileName) || 'download');
+            link.download = decodeURIComponent(fileName) || 'download';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error("Download failed:", error);
-            setNotification({ message: 'Download failed.', type: 'error' });
+            setNotification({ message: 'Download failed. Please check CORS configuration.', type: 'error' });
         }
     };
 
