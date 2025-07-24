@@ -122,6 +122,12 @@ const getStatusChip = (status) => {
     }
 };
 
+const revisionCountText = (count) => {
+    if (!count || count === 0) return null;
+    const suffix = count === 1 ? 'st' : count === 2 ? 'nd' : count === 3 ? 'rd' : 'th';
+    return `${count}${suffix} Revision`;
+};
+
 const DelayedLoopVideo = ({ src, className }) => {
     const videoRef = useRef(null);
     const handleVideoEnd = () => { setTimeout(() => { if (videoRef.current) { videoRef.current.play(); } }, 20000); };
@@ -141,12 +147,6 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
         const seenBy = post.seenBy || [];
         return lastCommenterId !== user.uid && !seenBy.includes(user.uid);
     }, [post.feedback, post.seenBy, user.uid]);
-
-    const revisionCountText = (count) => {
-        if (!count || count === 0) return null;
-        const suffix = count === 1 ? 'st' : count === 2 ? 'nd' : count === 3 ? 'rd' : 'th';
-        return `${count}${suffix} Revision`;
-    };
 
     const isVideo = post.mediaUrls?.[0]?.toLowerCase().includes('.mp4') || post.mediaUrls?.[0]?.toLowerCase().includes('.mov');
 
@@ -213,6 +213,7 @@ const PostListItem = ({ post, user, onReview, clients, onApprove, onRevise, onAr
             <td className="px-4 py-3" onClick={() => onReview(post)}>
                 <p className="font-medium text-gray-800 line-clamp-2 cursor-pointer">{post.caption}</p>
                 {user.role === 'designer' && <p className="text-xs text-gray-500">{clientName}</p>}
+                {post.revisionCount > 0 && <p className="text-xs text-orange-600 font-semibold mt-1">{revisionCountText(post.revisionCount)}</p>}
             </td>
             <td className="px-4 py-3" onClick={() => onReview(post)}>{getStatusChip(post.status)}</td>
             <td className="px-4 py-3 text-sm text-gray-600" onClick={() => onReview(post)}>{post.scheduledAt?.toDate ? post.scheduledAt.toDate().toLocaleDateString() : 'Unscheduled'}</td>
