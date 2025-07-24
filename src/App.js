@@ -409,7 +409,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded, onConvertToPost }) => {
+const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded, onConvertToPost, onDownload }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '', internalNotes: '' });
@@ -562,24 +562,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
     if (!post) return null;
     
     const currentMedia = mediaPreviews[currentMediaIndex];
-    
-    const handleDownload = async (url) => {
-        try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            const fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0];
-            link.download = decodeURIComponent(fileName) || 'download';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-        } catch (error) {
-            console.error("Download failed:", error);
-        }
-    };
 
     return (
         <Modal isOpen={!!post} onClose={onClose} title={`${isEditing ? 'Editing' : 'Reviewing'}: ${post.platforms?.join(', ') || 'Post Idea'}`}>
@@ -611,7 +593,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                                 {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}
                                 {user.role === 'designer' && currentMedia && (
                                     <button 
-                                        onClick={() => handleDownload(currentMedia.url)} 
+                                        onClick={() => onDownload(currentMedia.url)} 
                                         className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
                                         title="Download Media"
                                     >
@@ -1454,7 +1436,7 @@ const Portal = ({ user, setNotification }) => {
                 onShare={handleShareIdea}
                 setNotification={setNotification}
             />
-            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost}/>)}
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost} onDownload={handleDownload}/>)}
             <ConfirmationModal 
                 isOpen={!!postToDelete}
                 onClose={() => setPostToDelete(null)}
