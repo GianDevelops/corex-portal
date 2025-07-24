@@ -165,7 +165,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
             </div>
             <div className="p-4 flex flex-col flex-grow"><div className="flex justify-between items-start mb-2"><div className="text-xs font-semibold text-green-600 uppercase tracking-wider flex flex-wrap gap-x-2">{post.platforms?.join(', ')}</div>{getStatusChip(post.status)}</div><p className="text-gray-700 text-sm mb-3 flex-grow line-clamp-2">{post.caption}</p><p className="text-xs text-gray-500 mb-4 break-all line-clamp-1">{post.hashtags}</p>
                 <div className="border-t border-gray-200 pt-3 mt-auto">
-                    <div className="flex flex-wrap justify-between items-center gap-y-2">
+                    <div className="flex flex-wrap justify-between items-center gap-y-2 mb-2">
                         <div className="flex items-center text-sm text-gray-600 hover:text-black transition-colors">
                             <MessageSquare size={16} className="mr-2" />
                             <span>{post.feedback?.length || 0} Comments</span>
@@ -179,7 +179,7 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
                             {canDelete && (<button onClick={(e) => {e.stopPropagation(); onDelete(post);}} className="text-red-500 hover:text-red-700 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>)}
                         </div>
                     </div>
-                    {post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold mt-2">{revisionCountText(post.revisionCount)}</div>}
+                    {post.revisionCount > 0 && <div className="text-xs text-orange-600 font-semibold">{revisionCountText(post.revisionCount)}</div>}
                 </div>
             </div>
         </div>
@@ -517,6 +517,8 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             
             if(post.status === 'Post Idea') {
                 finalPostData.status = 'In Progress';
+            } else if (post.status === 'Revisions Requested') {
+                finalPostData.status = 'Pending Review';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
