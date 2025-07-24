@@ -517,8 +517,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
             
             if(post.status === 'Post Idea') {
                 finalPostData.status = 'In Progress';
-            } else if (post.status === 'Revisions Requested') {
-                finalPostData.status = 'Pending Review';
             }
             onUpdatePost(post.id, finalPostData);
             setIsEditing(false);
