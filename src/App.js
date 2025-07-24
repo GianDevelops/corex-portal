@@ -901,7 +901,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
     );
 };
 
-const MediaLibrary = ({ posts }) => {
+const MediaLibrary = ({ posts, onDownload }) => {
     const postsWithMedia = useMemo(() => posts.filter(p => p.mediaUrls && p.mediaUrls.length > 0), [posts]);
 
     const getFileIcon = (url) => {
@@ -917,12 +917,12 @@ const MediaLibrary = ({ posts }) => {
                     <h3 className="text-lg font-bold text-gray-800 mb-4 line-clamp-2">{post.caption}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {post.mediaUrls.map((url, index) => (
-                            <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
+                            <div key={index} onClick={() => onDownload(url)} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer">
                                 {getFileIcon(url)}
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Download size={32} className="text-white" />
                                 </div>
-                            </a>
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -1216,6 +1216,25 @@ const Portal = ({ user, setNotification }) => {
         }
     };
 
+    const handleDownload = async (url) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            const fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0];
+            link.download = decodeURIComponent(fileName) || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error("Download failed:", error);
+            setNotification({ message: 'Download failed.', type: 'error' });
+        }
+    };
+
     const clientFilteredPosts = useMemo(() => {
         if (user.role === 'designer' && clientFilter !== 'all') {
             return posts.filter(post => post.clientId === clientFilter);
@@ -1310,7 +1329,7 @@ const Portal = ({ user, setNotification }) => {
             return <CalendarView posts={timeFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
         }
         if (viewMode === 'library') {
-            return <MediaLibrary posts={timeFilteredPosts} />;
+            return <MediaLibrary posts={timeFilteredPosts} onDownload={handleDownload}/>;
         }
 
         if (subViewMode === 'list') {
