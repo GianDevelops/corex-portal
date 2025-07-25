@@ -411,7 +411,7 @@ const formatTimestamp = (isoString) => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded, onConvertToPost, onDownload }) => {
+const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelete, onSendToReview, onRequestMedia, onClientMediaUploaded, onConvertToPost }) => {
     const [comment, setComment] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ caption: '', hashtags: '', mediaUrls: [], platforms: [], scheduledAt: '', internalNotes: '' });
@@ -1407,7 +1407,7 @@ const Portal = ({ user, setNotification }) => {
                 onShare={handleShareIdea}
                 setNotification={setNotification}
             />
-            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost} onDownload={handleDownload}/>)}
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost} />)}
             <ConfirmationModal 
                 isOpen={!!postToDelete}
                 onClose={() => setPostToDelete(null)}
