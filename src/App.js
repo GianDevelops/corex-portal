@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon, MoreVertical } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -594,13 +594,9 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                                 )}
                                 {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}
                                 {user.role === 'designer' && currentMedia && (
-                                    <button 
-                                        onClick={() => onDownload(currentMedia.url)} 
-                                        className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
-                                        title="Download Media"
-                                    >
+                                    <a href={currentMedia.url} target="_blank" rel="noopener noreferrer" download className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors" title="Download Media">
                                         <Download size={18} />
-                                    </button>
+                                    </a>
                                 )}
                             </div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Scheduled for</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{editData.scheduledAt ? new Date(editData.scheduledAt).toLocaleString() : 'Not scheduled'}</p></div>
