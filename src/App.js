@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon, MoreVertical } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -594,7 +594,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                                 )}
                                 {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}
                                 {user.role === 'designer' && currentMedia && (
-                                    <a href={currentMedia.url} target="_blank" rel="noopener noreferrer" download className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors" title="Download Media">
+                                     <a href={currentMedia.url} target="_blank" rel="noopener noreferrer" download className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors" title="Download Media">
                                         <Download size={18} />
                                     </a>
                                 )}
@@ -899,9 +899,6 @@ const MediaLibrary = ({ posts, onDownload }) => {
                         {post.mediaUrls.map((url, index) => (
                             <div key={index} onClick={() => onDownload(url)} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer">
                                 {getFileIcon(url)}
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Download size={32} className="text-white" />
-                                </div>
                             </div>
                         ))}
                     </div>
