@@ -876,7 +876,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
     );
 };
 
-const MediaLibrary = ({ posts, onDownload }) => {
+const MediaLibrary = ({ posts }) => {
     const postsWithMedia = useMemo(() => posts.filter(p => p.mediaUrls && p.mediaUrls.length > 0), [posts]);
 
     const getFileIcon = (url) => {
@@ -892,9 +892,9 @@ const MediaLibrary = ({ posts, onDownload }) => {
                     <h3 className="text-lg font-bold text-gray-800 mb-4 line-clamp-2">{post.caption}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {post.mediaUrls.map((url, index) => (
-                            <div key={index} onClick={() => onDownload(url)} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer">
+                            <a key={index} href={url} target="_blank" rel="noopener noreferrer" className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
                                 {getFileIcon(url)}
-                            </div>
+                            </a>
                         ))}
                     </div>
                 </div>
