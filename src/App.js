@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -113,7 +113,7 @@ const getStatusChip = (status) => {
     switch (status) {
         case 'Post Idea': return <div className="flex items-center text-xs font-medium text-gray-800 bg-gray-200 px-2 py-1 rounded-full"><Lightbulb size={12} className="mr-1.5" />{status}</div>;
         case 'In Progress': return <div className="flex items-center text-xs font-medium text-blue-800 bg-blue-100 px-2 py-1 rounded-full"><Clock size={12} className="mr-1.5" />{status}</div>;
-        case 'Awaiting Media Upload': return <div className="flex items-center text-xs font-medium text-purple-800 bg-purple-100 px-2 py-1 rounded-full"><Paperclip size={12} className="mr-1.5" />Awaiting Media</div>;
+        case 'Awaiting Files': return <div className="flex items-center text-xs font-medium text-purple-800 bg-purple-100 px-2 py-1 rounded-full"><Paperclip size={12} className="mr-1.5" />{status}</div>;
         case 'Pending Review': return <div className="flex items-center text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded-full"><SendHorizonal size={12} className="mr-1.5" />{status}</div>;
         case 'Revisions Requested': return <div className="flex items-center text-xs font-medium text-orange-800 bg-orange-100 px-2 py-1 rounded-full"><Edit size={12} className="mr-1.5" />{status}</div>;
         case 'Approved': return <div className="flex items-center text-xs font-medium text-green-800 bg-green-100 px-2 py-1 rounded-full"><CheckCircle size={12} className="mr-1.5" />{status}</div>;
@@ -149,14 +149,15 @@ const PostCard = ({ post, user, onReview, onApprove, onRevise, onArchive, onDele
     }, [post.feedback, post.seenBy, user.uid]);
 
     const isVideo = post.mediaUrls?.[0]?.toLowerCase().includes('.mp4') || post.mediaUrls?.[0]?.toLowerCase().includes('.mov');
+    const displayImage = post.status === 'Awaiting Files' ? 'https://placehold.co/600x400/16a34a/ffffff?text=CoreX' : post.mediaUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media';
 
     return (
         <div onClick={() => onReview(post)} className="bg-white rounded-xl overflow-hidden shadow-md border border-gray-200 hover:border-green-500 transition-all duration-300 flex flex-col cursor-pointer">
             <div className="relative">
-                {isVideo ? (
-                    <DelayedLoopVideo src={post.mediaUrls?.[0]} className="w-full h-32 object-cover bg-black" />
+                {isVideo && post.status !== 'Awaiting Files' ? (
+                    <DelayedLoopVideo src={displayImage} className="w-full h-32 object-cover bg-black" />
                 ) : (
-                    <img src={post.mediaUrls?.[0] || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
+                    <img src={displayImage} alt="Social media post" className="w-full h-32 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                 )}
                 <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center backdrop-blur-sm">
                     {isVideo ? <Video size={12} className="mr-1.5" /> : <ImageIcon size={12} className="mr-1.5" />}
