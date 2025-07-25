@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, Download, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon, MoreVertical } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -630,15 +630,15 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                     )}
                     <div className="flex justify-between items-center mb-3"><h4 className="font-bold text-lg text-gray-800">Feedback & Revisions</h4>{user.role === 'designer' && (post.status !== 'Post Idea') && !isEditing && (<button onClick={() => setIsEditing(true)} className="flex items-center text-sm bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition-colors"><Edit size={16} className="mr-2" /> Edit Post</button>)}</div><div className="flex-grow bg-gray-50 rounded-lg p-4 space-y-4 overflow-y-auto mb-4 min-h-[200px] max-h-[40vh]">{post?.feedback?.length > 0 ? (post.feedback.map((fb, index) => (<div key={index} className={`flex flex-col ${fb.authorRole === 'client' ? 'items-start' : 'items-end'}`}><div className={`p-3 rounded-lg max-w-[80%] ${fb.authorRole === 'client' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}><p className="text-sm whitespace-pre-wrap">{fb.text}</p></div><span className="text-xs text-gray-500 mt-1">{fb.authorName} - {formatTimestamp(fb.timestamp)}</span></div>))) : (<div className="text-center text-gray-500 pt-8">No feedback yet.</div>)}</div>{post?.status !== 'Approved' && !isEditing && (<div className="mt-auto flex items-center gap-2"><textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add a comment..." className="w-full bg-gray-100 border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-500 transition text-gray-800" rows="2" onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFeedbackSubmit(); } }} /><button onClick={handleFeedbackSubmit} className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!comment.trim()}><Send size={20} /></button></div>)}</div>
             </div>
-            {user.role === 'client' && post.status === 'Awaiting Media Upload' && (
+            {user.role === 'client' && post.status === 'Awaiting Files' && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
-                    <h4 className="font-bold text-lg text-gray-800 mb-2">Upload Required Media</h4>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Media ({clientUploadFiles.length} / 5)</label>
-                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="client-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="client-file-upload" name="client-file-upload" type="file" className="sr-only" multiple accept="image/*,video/mp4,video/quicktime,application/pdf" onChange={(e) => handleFileChange(e, true)} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">PNG, JPG, GIF, MP4, MOV, PDF up to 50MB</p></div></div>
+                    <h4 className="font-bold text-lg text-gray-800 mb-2">Upload Required Files</h4>
+                    <div><label className="block text-sm font-medium text-gray-700 mb-2">Files ({clientUploadFiles.length} / 5)</label>
+                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10"><div className="text-center"><UploadCloud className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" /><div className="mt-4 flex text-sm leading-6 text-gray-600"><label htmlFor="client-file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-green-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-green-600 focus-within:ring-offset-2 hover:text-green-500"><span>Upload files</span><input id="client-file-upload" name="client-file-upload" type="file" className="sr-only" multiple onChange={(e) => handleFileChange(e, true)} /></label><p className="pl-1">or drag and drop</p></div><p className="text-xs leading-5 text-gray-600">Any file type up to 50MB</p></div></div>
                         {clientUploadPreviews.length > 0 && (<div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">{clientUploadPreviews.map((preview, index) => (<div key={preview.url} className="relative group">{preview.type.startsWith('video') ? <DelayedLoopVideo src={preview.url} className="h-24 w-24 object-cover rounded-md bg-black" /> : <img src={preview.url} alt={`preview ${index}`} className="h-24 w-24 object-cover rounded-md" />}<button type="button" onClick={() => removeClientUploadMedia(index)} className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={16} /></button></div>))}</div>)}
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
-                        <button onClick={handleClientUploadSubmit} disabled={isUploading || clientUploadFiles.length === 0} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><UploadCloud size={18} className="mr-2" /> Upload Media</>}</button>
+                        <button onClick={handleClientUploadSubmit} disabled={isUploading || clientUploadFiles.length === 0} className="py-2 px-5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center disabled:bg-gray-400">{isUploading ? 'Uploading...' : <><UploadCloud size={18} className="mr-2" /> Upload Files</>}</button>
                     </div>
                 </div>
             )}
@@ -650,7 +650,7 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                     <button onClick={() => { onSendToReview(post); onClose(); }} className="flex items-center text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><SendHorizonal size={16} className="mr-2" /> Send to Review</button>
                 )}
                 {user.role === 'designer' && post.status === 'In Progress' && !isEditing && (
-                    <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Media</button>
+                    <button onClick={() => { onRequestMedia(post.id); onClose(); }} className="flex items-center text-sm bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Paperclip size={16} className="mr-2" /> Request Files</button>
                 )}
                 {user.role === 'designer' && (
                     <button onClick={() => onDelete(post)} className="flex items-center text-sm bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"><Trash2 size={16} className="mr-2" /> Delete Post</button>
@@ -723,7 +723,7 @@ const CalendarView = ({ posts, onSelectEvent, onSelectSlot, userRole }) => {
                                         bgColor = 'bg-gray-200 text-gray-800';
                                     } else if (post.status === 'In Progress') {
                                         bgColor = 'bg-blue-200 text-blue-800';
-                                    } else if (post.status === 'Awaiting Media Upload') {
+                                    } else if (post.status === 'Awaiting Files') {
                                         bgColor = 'bg-purple-200 text-purple-800';
                                     } else if (post.status === 'Revisions Requested') {
                                         bgColor = 'bg-red-200 text-red-800';
@@ -1150,13 +1150,13 @@ const Portal = ({ user, setNotification }) => {
         const post = posts.find(p => p.id === postId);
         try {
             const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
-            await updateDoc(postRef, { status: 'Awaiting Media Upload', updatedAt: serverTimestamp() });
-            setNotification({ message: 'Media request sent to client!', type: 'info' });
+            await updateDoc(postRef, { status: 'Awaiting Files', updatedAt: serverTimestamp() });
+            setNotification({ message: 'File request sent to client!', type: 'info' });
             if (post) {
-                await createNotification(post.clientId, postId, `Media has been requested for "${post.caption}".`);
+                await createNotification(post.clientId, postId, `Files have been requested for "${post.caption}".`);
             }
         } catch (e) {
-            setNotification({ message: 'Failed to request media.', type: 'error' });
+            setNotification({ message: 'Failed to request files.', type: 'error' });
         }
     };
     const handleClientMediaUploaded = async (postId, newMediaUrls) => {
@@ -1168,12 +1168,12 @@ const Portal = ({ user, setNotification }) => {
                 status: 'In Progress',
                 updatedAt: serverTimestamp()
             });
-            setNotification({ message: 'Media uploaded successfully!', type: 'success' });
+            setNotification({ message: 'Files uploaded successfully!', type: 'success' });
             if (post && post.designerId) {
-                await createNotification(post.designerId, postId, `Media has been uploaded for "${post.caption}".`);
+                await createNotification(post.designerId, postId, `Files have been uploaded for "${post.caption}".`);
             }
         } catch (e) {
-            setNotification({ message: 'Failed to upload media.', type: 'error' });
+            setNotification({ message: 'Failed to upload files.', type: 'error' });
         }
     };
     const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
@@ -1272,7 +1272,7 @@ const Portal = ({ user, setNotification }) => {
         
         const designerColumns = {
             'In Progress': allActive.filter(p => p.status === 'In Progress'),
-            'Awaiting Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
+            'Awaiting Files': allActive.filter(p => p.status === 'Awaiting Files'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
             'Approved': allActive.filter(p => p.status === 'Approved'),
@@ -1280,7 +1280,7 @@ const Portal = ({ user, setNotification }) => {
 
         const clientColumns = {
             'In Progress': allActive.filter(p => p.status === 'In Progress'),
-            'Awaiting Your Media': allActive.filter(p => p.status === 'Awaiting Media Upload'),
+            'Awaiting Your Files': allActive.filter(p => p.status === 'Awaiting Files'),
             'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
             'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
             'Approved': allActive.filter(p => p.status === 'Approved'),
