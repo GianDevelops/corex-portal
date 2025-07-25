@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, addDoc, updateDoc, onSnapshot, query, where, serverTimestamp, arrayUnion, setDoc, getDoc, getDocs, increment, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon, MoreVertical, Download } from 'lucide-react';
+import { CheckCircle, MessageSquare, Plus, Edit, Send, Image as ImageIcon, Video, ThumbsUp, XCircle, Clock, LogOut, Filter, UploadCloud, Save, Archive, FolderOpen, Calendar as CalendarIcon, Columns, Lightbulb, Trash2, AlertTriangle, List, LayoutGrid, SendHorizonal, Paperclip, File as FileIcon, Library, Repeat, Bell, FolderPlus, Link as LinkIcon, MoreVertical } from 'lucide-react';
 
 // --- Firebase Configuration ---
 /* eslint-disable no-undef */
@@ -593,11 +593,6 @@ const ReviewModal = ({ post, user, onAddFeedback, onClose, onUpdatePost, onDelet
                                     <img src={currentMedia?.url || 'https://placehold.co/600x400/f0f0f0/333333?text=No+Media'} alt="Social media post" className="rounded-lg w-full h-80 object-cover" onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x400/f0f0f0/333333?text=Media+Error`; }}/>
                                 )}
                                 {mediaPreviews?.length > 1 && (<><button onClick={prevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">‹</button><button onClick={nextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors">›</button><div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">{currentMediaIndex + 1} / {mediaPreviews.length}</div></>)}
-                                {user.role === 'designer' && currentMedia && (
-                                     <a href={currentMedia.url} target="_blank" rel="noopener noreferrer" download className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors" title="Download Media">
-                                         <Download size={18} />
-                                     </a>
-                                )}
                             </div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Scheduled for</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{editData.scheduledAt ? new Date(editData.scheduledAt).toLocaleString() : 'Not scheduled'}</p></div>
                             <div><h4 className="font-bold text-lg text-gray-800 mb-1">Caption</h4><p className="text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap">{post?.caption}</p></div>
@@ -1002,7 +997,7 @@ const Portal = ({ user, setNotification }) => {
         } else {
              const designersSnapshot = await getDocs(query(collection(db, "users"), where("role", "==", "designer")));
              if (!designersSnapshot.empty) {
-                 designerId = designersSnapshot.docs[0].id;
+                designerId = designersSnapshot.docs[0].id;
              }
         }
 
@@ -1093,4 +1088,371 @@ const Portal = ({ user, setNotification }) => {
         try { 
             const updatePayload = { feedback: arrayUnion(feedbackData), updatedAt: serverTimestamp(), seenBy: [user.uid] }; 
             await updateDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId), updatePayload); 
-            setNotification({ message: 'Comment posted.', type: 'info' });
+            setNotification({ message: 'Comment posted.', type: 'info' }); 
+            if (post) {
+                const notifyUserId = user.role === 'designer' ? post.clientId : post.designerId;
+                if (notifyUserId) {
+                    await createNotification(notifyUserId, postId, `${user.name} left feedback on "${post.caption}".`);
+                }
+            }
+        } catch (e) { 
+            setNotification({ message: 'Failed to add feedback.', type: 'error' }); 
+        } 
+    };
+    const handleRequestRevision = async (postId) => { 
+        const post = posts.find(p => p.id === postId);
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); 
+            await updateDoc(postRef, { status: 'Revisions Requested', revisionCount: increment(1), updatedAt: serverTimestamp(), seenBy: [user.uid] }); 
+            setNotification({ message: 'Revision requested.', type: 'info' }); 
+            if (post && post.designerId) {
+                await createNotification(post.designerId, postId, `Revisions were requested for "${post.caption}".`);
+            }
+        } catch (e) { 
+            setNotification({ message: 'Failed to request revision.', type: 'error' }); 
+        }};
+    const handleArchivePost = async (postId) => { 
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId); 
+            await updateDoc(postRef, { archivedBy: arrayUnion(user.uid) }); 
+            setNotification({ message: 'Post archived.', type: 'info' }); 
+        } catch (e) { 
+            setNotification({ message: 'Failed to archive post.', type: 'error' }); 
+        }
+    };
+    const handleSendToReview = async (post) => { 
+        if (!post.mediaUrls || post.mediaUrls.length === 0) {
+            setNotification({ message: 'Please add media to the post before sending for review.', type: 'error' });
+            return;
+        }
+        try { 
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, post.id); 
+            await updateDoc(postRef, { status: 'Pending Review', updatedAt: serverTimestamp() }); 
+            setNotification({ message: 'Post sent for review!', type: 'success' }); 
+            await createNotification(post.clientId, post.id, `"${post.caption}" is ready for your review.`);
+        } catch (e) { 
+            setNotification({ message: 'Failed to send for review.', type: 'error' }); 
+        }
+    };
+    const handleRequestMedia = async (postId) => {
+        const post = posts.find(p => p.id === postId);
+        try {
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
+            await updateDoc(postRef, { status: 'Awaiting Files', updatedAt: serverTimestamp() });
+            setNotification({ message: 'File request sent to client!', type: 'info' });
+            if (post) {
+                await createNotification(post.clientId, postId, `Files have been requested for "${post.caption}".`);
+            }
+        } catch (e) {
+            setNotification({ message: 'Failed to request files.', type: 'error' });
+        }
+    };
+    const handleClientMediaUploaded = async (postId, newMediaUrls) => {
+        const post = posts.find(p => p.id === postId);
+        try {
+            const postRef = doc(db, `artifacts/${appId}/public/data/social_media_posts`, postId);
+            await updateDoc(postRef, {
+                mediaUrls: newMediaUrls,
+                status: 'In Progress',
+                updatedAt: serverTimestamp()
+            });
+            setNotification({ message: 'Files uploaded successfully!', type: 'success' });
+            if (post && post.designerId) {
+                await createNotification(post.designerId, postId, `Files have been uploaded for "${post.caption}".`);
+            }
+        } catch (e) {
+            setNotification({ message: 'Failed to upload files.', type: 'error' });
+        }
+    };
+    const handleSignOut = async () => { try { await signOut(auth); setNotification({ message: 'Signed out.', type: 'info' }); } catch (error) { setNotification({ message: 'Failed to sign out.', type: 'error' }); } };
+
+    const handleDeletePost = async () => {
+        if (!postToDelete) return;
+
+        try {
+            if (postToDelete.mediaUrls && postToDelete.mediaUrls.length > 0) {
+                for (const url of postToDelete.mediaUrls) {
+                    const fileRef = ref(storage, url);
+                    await deleteObject(fileRef);
+                }
+            }
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/social_media_posts`, postToDelete.id));
+
+            setNotification({ message: 'Post permanently deleted.', type: 'success' });
+            setReviewingPost(null);
+        } catch (error) {
+            console.error("Error deleting post:", error);
+            setNotification({ message: 'Failed to delete post.', type: 'error' });
+        } finally {
+            setPostToDelete(null);
+        }
+    };
+
+    const clientFilteredPosts = useMemo(() => {
+        if (user.role === 'designer' && clientFilter !== 'all') {
+            return posts.filter(post => post.clientId === clientFilter);
+        }
+        return posts;
+    }, [posts, clientFilter, user.role]);
+
+    const timeFilteredPosts = useMemo(() => {
+        if (timeFilter === 'all') {
+            return clientFilteredPosts;
+        }
+
+        const now = new Date();
+        let startDate;
+
+        switch (timeFilter) {
+            case '7days':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 7);
+                break;
+            case '30days':
+                startDate = new Date(now);
+                startDate.setDate(now.getDate() - 30);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                break;
+            default:
+                return clientFilteredPosts;
+        }
+        startDate.setHours(0, 0, 0, 0);
+
+        return clientFilteredPosts.filter(post => {
+            const postDate = post.createdAt?.toDate();
+            return postDate && postDate >= startDate;
+        });
+    }, [clientFilteredPosts, timeFilter]);
+
+    const activePosts = useMemo(() => {
+        return timeFilteredPosts.filter(p => (!p.archivedBy || !p.archivedBy.includes(user.uid)) && p.status !== 'Post Idea');
+    }, [timeFilteredPosts, user.uid]);
+
+    const archivedPosts = useMemo(() => timeFilteredPosts.filter(p => p.archivedBy && p.archivedBy.includes(user.uid)), [timeFilteredPosts, user.uid]);
+    const postIdeas = useMemo(() => timeFilteredPosts.filter(p => p.status === 'Post Idea'), [timeFilteredPosts]);
+    
+    const columns = useMemo(() => {
+        const allActive = activePosts;
+        
+        const designerColumns = {
+            'In Progress': allActive.filter(p => p.status === 'In Progress'),
+            'Awaiting Files': allActive.filter(p => p.status === 'Awaiting Files'),
+            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
+            'Approved': allActive.filter(p => p.status === 'Approved'),
+        };
+
+        const clientColumns = {
+            'In Progress': allActive.filter(p => p.status === 'In Progress'),
+            'Awaiting Your Files': allActive.filter(p => p.status === 'Awaiting Files'),
+            'Pending Review': allActive.filter(p => p.status === 'Pending Review'),
+            'Revisions Requested': allActive.filter(p => p.status === 'Revisions Requested'),
+            'Approved': allActive.filter(p => p.status === 'Approved'),
+        };
+
+        return user.role === 'designer' ? designerColumns : clientColumns;
+    }, [activePosts, user.role]);
+
+    const viewPosts = useMemo(() => {
+        switch(viewMode) {
+            case 'overview': return activePosts.filter(p => p.status !== 'Post Idea');
+            case 'ideas': return postIdeas;
+            case 'pending': return columns['Pending Review'] || [];
+            case 'revision': return columns['Revisions Requested'] || [];
+            case 'approved': return columns['Approved'] || [];
+            case 'archived': return archivedPosts;
+            default: return [];
+        }
+    }, [viewMode, activePosts, postIdeas, archivedPosts, columns]);
+
+    const statusTitles = {
+        overview: 'Overview',
+        ideas: 'Post Ideas',
+        pending: 'Pending Review',
+        revision: 'Revisions Requested',
+        approved: 'Approved',
+        archived: 'Archived Posts',
+        library: 'Media Library'
+    };
+
+    const renderContent = () => {
+        if (viewMode === 'calendar') {
+            return <CalendarView posts={timeFilteredPosts} onSelectEvent={handleOpenReview} onSelectSlot={handleSelectSlot} userRole={user.role} />;
+        }
+        if (viewMode === 'library') {
+            return <MediaLibrary posts={timeFilteredPosts} />;
+        }
+
+        if (subViewMode === 'list') {
+            return <ListView posts={viewPosts} user={user} onReview={handleOpenReview} clients={clients} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>;
+        }
+        
+        // Bucket View Logic
+        if (viewMode === 'overview') {
+            return (
+                <div className={`grid gap-6 flex-1 min-h-0 grid-cols-1 md:grid-cols-2 ${user.role === 'designer' ? 'lg:grid-cols-5' : 'lg:grid-cols-5'}`}>
+                    {Object.entries(columns).map(([status, postsInColumn]) => (
+                        <div key={status} className="bg-gray-100 rounded-xl flex flex-col">
+                            <h2 className="text-md font-bold text-gray-800 p-4 pb-2 flex-shrink-0 flex items-center whitespace-nowrap">{status} <span className="ml-2 bg-gray-200 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">{postsInColumn.length}</span></h2>
+                            <div className="overflow-y-auto p-4 pt-0">
+                                <div className="space-y-4">
+                                    {postsInColumn.length > 0 ? (postsInColumn.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>))) : (<div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        return (
+            <div className="overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {viewPosts.length > 0 ? (viewPosts.map(post => (<PostCard key={post.id} post={post} user={user} onReview={handleOpenReview} onApprove={handleApprovePost} onRevise={handleRequestRevision} onArchive={handleArchivePost} onDelete={setPostToDelete} onConvertToPost={handleConvertToPost}/>))) : (<div className="col-span-full text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-300 rounded-lg">No posts in this stage.</div>)}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="bg-gray-50 text-gray-800 min-h-screen font-sans flex flex-col">
+            <header className="sticky top-0 bg-white/80 backdrop-blur-lg p-4 z-30 border-b border-gray-200">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                    <div className="flex items-center gap-3"><h1 className="text-2xl font-bold text-gray-800">Core<span className="text-green-600">X</span></h1><span className="text-2xl font-light text-gray-500">Social Hub</span></div>
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <button onClick={() => { setIsNotificationsOpen(!isNotificationsOpen); if(!isNotificationsOpen) { handleMarkNotificationsAsRead(); } }} className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative">
+                                <Bell size={20} />
+                                {unreadNotifications.length > 0 && (
+                                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                                )}
+                            </button>
+                            {isNotificationsOpen && (
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                                    <div className="p-3 border-b font-semibold text-gray-700">Notifications</div>
+                                    <div className="max-h-96 overflow-y-auto">
+                                        {notifications.length > 0 ? notifications.map(notif => (
+                                            <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notif.read ? 'bg-green-50' : ''}`}>
+                                                <p className="text-sm text-gray-700">{notif.message}</p>
+                                                <p className="text-xs text-gray-400 mt-1">{formatTimestamp(notif.createdAt?.toDate().toISOString())}</p>
+                                            </div>
+                                        )) : <p className="p-4 text-sm text-gray-500 text-center">No notifications yet.</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="text-right"><div className="font-semibold">{user.name}</div><div className="text-xs text-gray-500 capitalize">{user.role}</div></div>
+                        {user.role === 'designer' && (<button onClick={() => { setSelectedDate(null); setIdeaToConvert(null); setIsNewPostModalOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Plus size={20} className="mr-2" /> New Post</button>)}
+                        {user.role === 'client' && (<button onClick={() => setIsClientIdeaModalOpen(true)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-300 transform hover:scale-105"><Lightbulb size={20} className="mr-2" /> Share Idea</button>)}
+                        <button onClick={handleSignOut} className="p-2 text-gray-500 hover:text-gray-800 transition-colors"><LogOut size={20} /></button>
+                    </div>
+                </div>
+            </header>
+            <main className="flex-1 flex flex-col min-h-0">
+                <div className="max-w-7xl w-full mx-auto p-4 md:p-8 flex flex-col flex-1">
+                     <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
+                         <div className="flex items-center gap-2 bg-gray-200 p-1 rounded-lg flex-wrap">
+                            <button onClick={() => setViewMode('overview')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'overview' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Columns size={16} className="inline mr-1.5" />Overview</button>
+                            <button onClick={() => setViewMode('pending')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'pending' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Pending</button>
+                            <button onClick={() => setViewMode('revision')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'revision' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Revision</button>
+                            <button onClick={() => setViewMode('approved')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'approved' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}>Approved</button>
+                            <button onClick={() => setViewMode('ideas')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'ideas' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Lightbulb size={16} className="inline mr-1.5" />Post Ideas</button>
+                            <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><CalendarIcon size={16} className="inline mr-1.5" />Calendar</button>
+                            <button onClick={() => setViewMode('library')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'library' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><Library size={16} className="inline mr-1.5" />Media Library</button>
+                            <button onClick={() => setViewMode('archived')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'archived' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><FolderOpen size={16} className="inline mr-1.5" />Archived</button>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <CalendarIcon size={16} className="text-gray-500" />
+                                <select onChange={(e) => setTimeFilter(e.target.value)} value={timeFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Time</option>
+                                    <option value="7days">Last 7 Days</option>
+                                    <option value="30days">Last 30 Days</option>
+                                    <option value="month">This Month</option>
+                                </select>
+                            </div>
+                            {user.role === 'designer' && (
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500" />
+                                <select onChange={(e) => setClientFilter(e.target.value)} value={clientFilter} className="bg-white border border-gray-300 rounded-lg p-2 text-sm text-gray-800 focus:ring-2 focus:ring-green-500 transition">
+                                    <option value="all">All Clients</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            )}
+                            {viewMode !== 'calendar' && viewMode !== 'library' && (
+                                <div className="flex items-center gap-1 bg-gray-200 p-1 rounded-lg">
+                                    <button onClick={() => setSubViewMode('bucket')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'bucket' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><LayoutGrid size={18} /></button>
+                                    <button onClick={() => setSubViewMode('list')} className={`p-1.5 rounded-md transition-colors ${subViewMode === 'list' ? 'bg-white shadow text-green-600' : 'text-gray-600 hover:bg-gray-300'}`}><List size={18} /></button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="mb-4">
+                        <h2 className="text-2xl font-bold text-gray-800">{statusTitles[viewMode]} <span className="ml-2 bg-gray-200 text-gray-600 text-base font-semibold px-3 py-1 rounded-full">{viewMode !== 'library' ? viewPosts.length : ''}</span></h2>
+                    </div>
+                    {isLoading ? (<div className="text-center py-20 text-gray-500">Loading...</div>) : renderContent()}
+                </div>
+            </main>
+            <Modal isOpen={isNewPostModalOpen} onClose={() => { setIsNewPostModalOpen(false); setIdeaToConvert(null); }}>
+                <NewPostForm user={user} clients={clients} onPostCreated={handleCreatePost} onCancel={() => { setIsNewPostModalOpen(false); setIdeaToConvert(null); }} selectedDate={selectedDate} initialData={ideaToConvert} />
+            </Modal>
+            <ClientIdeaModal 
+                isOpen={isClientIdeaModalOpen} 
+                onClose={() => setIsClientIdeaModalOpen(false)} 
+                onShare={handleShareIdea}
+                setNotification={setNotification}
+            />
+            {reviewingPost && (<ReviewModal post={reviewingPost} user={user} onClose={() => setReviewingPost(null)} onAddFeedback={handleAddFeedback} onUpdatePost={handleUpdatePost} onDelete={setPostToDelete} onSendToReview={handleSendToReview} onRequestMedia={handleRequestMedia} onClientMediaUploaded={handleClientMediaUploaded} onConvertToPost={handleConvertToPost} onDownload={handleDownload}/>)}
+            <ConfirmationModal 
+                isOpen={!!postToDelete}
+                onClose={() => setPostToDelete(null)}
+                onConfirm={handleDeletePost}
+                title="Delete Post"
+                message="Are you sure you want to permanently delete this post and all its media? This action cannot be undone."
+            />
+        </div>
+    );
+};
+
+// --- Main App Component ---
+export default function App() {
+    const [user, setUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [notification, setNotification] = useState({ message: '', type: 'info' });
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                const userDocRef = doc(db, "users", firebaseUser.uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    setUser({ uid: firebaseUser.uid, ...userDoc.data() });
+                } else {
+                    setNotification({ message: 'User profile not found. Please register again.', type: 'error' });
+                    await signOut(auth);
+                    setUser(null);
+                }
+            } else {
+                setUser(null);
+            }
+            setAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    if (authLoading) {
+        return <div className="bg-gray-50 min-h-screen flex items-center justify-center text-gray-800">Authenticating...</div>;
+    }
+
+    return (
+        <>
+            <Notification message={notification.message} type={notification.type} onDismiss={() => setNotification({ message: '', type: 'info' })} />
+            {user ? <Portal user={user} setNotification={setNotification} /> : <AuthScreen setNotification={setNotification} />}
+        </>
+    );
+}
